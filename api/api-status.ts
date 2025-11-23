@@ -19,7 +19,7 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuth } from '../lib/auth';
+import { requireAuth } from '../lib/core/auth';
 
 interface APIStatus {
   name: string;

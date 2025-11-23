@@ -17,11 +17,11 @@
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { createNotionClient } from '../lib/notion-client';
-import { requireAuth } from '../lib/auth';
-import { createTimer, info, error as logError } from '../lib/logger';
-import { formatErrorResponse } from '../lib/utils';
-import { getStatusCode } from '../lib/errors';
+import { createNotionClient } from '../lib/integrations/notion/client';
+import { requireAuth } from '../lib/core/auth';
+import { createTimer, info, error as logError } from '../lib/core/logger';
+import { formatErrorResponse } from '../lib/core/utils';
+import { getStatusCode } from '../lib/core/errors';
 
 interface NotionWebhookPayload {
   type?: string;

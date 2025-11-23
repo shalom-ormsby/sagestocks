@@ -11,7 +11,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, getUserByEmail, decryptToken } from '../../lib/auth';
+import { validateSession, getUserByEmail, decryptToken } from '../../lib/core/auth';
 import { Client } from '@notionhq/client';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -5,10 +5,10 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { createFMPClient } from '../../lib/fmp-client';
-import { createFREDClient } from '../../lib/fred-client';
-import { getMarketContext } from '../../lib/market';
-import { getCacheMetadata, getCachedMarketContext } from '../../lib/market/cache';
+import { createFMPClient } from '../../lib/integrations/fmp/client';
+import { createFREDClient } from '../../lib/integrations/fred/client';
+import { getMarketContext } from '../../lib/domain/market/index';
+import { getCacheMetadata, getCachedMarketContext } from '../../lib/domain/market/cache';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {

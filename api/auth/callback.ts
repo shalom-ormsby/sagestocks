@@ -7,12 +7,12 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { log, LogLevel } from '../../lib/logger';
+import { log, LogLevel } from '../../lib/core/logger';
 import {
   storeUserSession,
   createOrUpdateUser,
   updateUserStatus,
-} from '../../lib/auth';
+} from '../../lib/core/auth';
 
 interface NotionOAuthTokenResponse {
   access_token: string;
@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     });
 
     // STEP 3: Check if user already exists (BEFORE template check)
-    const { getUserByNotionId } = await import('../../lib/auth');
+    const { getUserByNotionId } = await import('../../lib/core/auth');
     const existingUser = await getUserByNotionId(userId);
 
     log(LogLevel.INFO, 'Existing user check', {

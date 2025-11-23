@@ -9,8 +9,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { log, LogLevel } from '../../lib/logger';
-import { validateSession, getUserByNotionId } from '../../lib/auth';
+import { log, LogLevel } from '../../lib/core/logger';
+import { validateSession, getUserByNotionId } from '../../lib/core/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   try {
@@ -57,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 
     // Decrypt access token
-    const { decryptToken } = await import('../../lib/auth');
+    const { decryptToken } = await import('../../lib/core/auth');
     const accessToken = await decryptToken(user.accessToken);
 
     // Initialize Notion client

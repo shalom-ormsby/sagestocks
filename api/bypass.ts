@@ -22,8 +22,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { RateLimiter } from '../lib/rate-limiter';
-import { log, LogLevel } from '../lib/logger';
+import { RateLimiter } from '../lib/core/rate-limiter';
+import { log, LogLevel } from '../lib/core/logger';
 
 interface BypassRequest {
   userId: string;

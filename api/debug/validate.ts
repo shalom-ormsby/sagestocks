@@ -11,8 +11,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, getUserByEmail, decryptToken } from '../../lib/auth';
-import { validateDatabaseConfig } from '../../lib/database-validator';
+import { validateSession, getUserByEmail, decryptToken } from '../../lib/core/auth';
+import { validateDatabaseConfig } from '../../lib/shared/database-validator';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

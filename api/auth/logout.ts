@@ -5,8 +5,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { log, LogLevel } from '../../lib/logger';
-import { clearUserSession } from '../../lib/auth';
+import { log, LogLevel } from '../../lib/core/logger';
+import { clearUserSession } from '../../lib/core/auth';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse): Promise<void> {
   try {

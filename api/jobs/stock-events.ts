@@ -18,8 +18,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { createFMPClient } from '../../lib/fmp-client';
-import { runStockEventsIngestion } from '../../lib/stock-events-ingestion';
+import { createFMPClient } from '../../lib/integrations/fmp/client';
+import { runStockEventsIngestion } from '../../lib/domain/stock/events-ingestion';
 
 // Vercel function configuration
 export const maxDuration = 300; // 5 minutes (need time for FMP fetch + per-user distribution)

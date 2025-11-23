@@ -5,7 +5,7 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession } from '../../lib/auth';
+import { validateSession } from '../../lib/core/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

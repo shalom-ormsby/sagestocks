@@ -18,8 +18,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, updateSetupProgress } from '../../lib/auth';
-import { log, LogLevel } from '../../lib/logger';
+import { validateSession, updateSetupProgress } from '../../lib/core/auth';
+import { log, LogLevel } from '../../lib/core/logger';
 
 interface AdvanceRequest {
   step: 1 | 2 | 3 | 4 | 5 | 6;

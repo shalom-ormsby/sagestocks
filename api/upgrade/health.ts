@@ -10,9 +10,9 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, getUserByEmail, decryptToken } from '../../lib/auth';
-import { testDatabaseRead } from '../../lib/template-detection';
-import { CURRENT_VERSION, needsUpgrade } from '../../lib/template-versions';
+import { validateSession, getUserByEmail, decryptToken } from '../../lib/core/auth';
+import { testDatabaseRead } from '../../lib/domain/templates/detection';
+import { CURRENT_VERSION, needsUpgrade } from '../../lib/domain/templates/versions';
 import { Client } from '@notionhq/client';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

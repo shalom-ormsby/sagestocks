@@ -95,7 +95,7 @@ async function handleSetupStart(emailInput = null) {
     } else if (hasSessionCookie) {
       // Has session: Skip to app
       console.log('✅ Session detected - going to app');
-      window.location.href = '/analyze.html';
+      window.location.href = '/pages/analyze.html';
     }
   } catch (error) {
     console.error('❌ Database check failed:', error);
@@ -308,7 +308,7 @@ async function loadSetupStatus() {
     if (data.setupComplete && currentState.currentStep === 6) {
       console.log('✓ Setup complete, redirecting to analyzer...');
       setTimeout(() => {
-        window.location.href = '/analyze.html';
+        window.location.href = '/pages/analyze.html';
       }, 1000);
     }
   } catch (error) {
@@ -728,7 +728,7 @@ function createStep2Content() {
             id="signin-button"
             class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <img src="/notion-logo.png" alt="Notion" class="w-5 h-5 mr-2" onerror="this.style.display='none'" />
+            <img src="/assets/notion-logo.png" alt="Notion" class="w-5 h-5 mr-2" onerror="this.style.display='none'" />
             Sign in with Notion
           </button>
         </div>
@@ -1098,7 +1098,7 @@ async function runFirstAnalysis(ticker, button = null, statusDiv = null) {
           <ul class="ml-4 list-disc space-y-1">
             <li>Access your Stock Analyses and History databases</li>
             <li>View AI-generated insights and recommendations</li>
-            <li>Run more analyses from the <a href="/analyze.html" class="text-blue-600 hover:underline">analyzer page</a></li>
+            <li>Run more analyses from the <a href="/pages/analyze.html" class="text-blue-600 hover:underline">analyzer page</a></li>
           </ul>
         </div>
       </div>
@@ -1215,7 +1215,7 @@ function createStep6Content() {
         </div>
         <p class="text-sm text-gray-600 mb-4">Redirecting to your analyzer in <span id="countdown">3</span> seconds...</p>
         <button
-          onclick="window.location.href='/analyze.html'"
+          onclick="window.location.href='/pages/analyze.html'"
           class="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl text-lg"
         >
           Go to Analyzer Now →
@@ -1234,7 +1234,7 @@ function createStep6Content() {
     }
     if (countdown <= 0) {
       clearInterval(interval);
-      window.location.href = '/analyze.html';
+      window.location.href = '/pages/analyze.html';
     }
   }, 1000);
 

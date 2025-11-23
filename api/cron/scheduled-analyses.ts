@@ -14,11 +14,11 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAllUsers } from '../../lib/auth';
-import { runOrchestrator } from '../../lib/orchestrator';
-import { getMarketContext, MarketContext } from '../../lib/market';
-import { createFMPClient } from '../../lib/fmp-client';
-import { createFREDClient } from '../../lib/fred-client';
+import { getAllUsers } from '../../lib/core/auth';
+import { runOrchestrator } from '../../lib/orchestration/orchestrator';
+import { getMarketContext, MarketContext } from '../../lib/domain/market/index';
+import { createFMPClient } from '../../lib/integrations/fmp/client';
+import { createFREDClient } from '../../lib/integrations/fred/client';
 
 // Vercel function configuration
 // Pro plan with Fluid Compute supports up to 800 seconds (~13 min)

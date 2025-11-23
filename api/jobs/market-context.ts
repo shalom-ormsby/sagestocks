@@ -20,10 +20,10 @@
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { Client } from '@notionhq/client';
-import { getAllUsers, decryptToken } from '../../lib/auth';
-import { getMarketContext, MarketContext } from '../../lib/market';
-import { createFMPClient } from '../../lib/fmp-client';
-import { createFREDClient } from '../../lib/fred-client';
+import { getAllUsers, decryptToken } from '../../lib/core/auth';
+import { getMarketContext, MarketContext } from '../../lib/domain/market/index';
+import { createFMPClient } from '../../lib/integrations/fmp/client';
+import { createFREDClient } from '../../lib/integrations/fred/client';
 
 // Vercel function configuration
 export const maxDuration = 120; // 2 minutes (need time for per-user distribution)

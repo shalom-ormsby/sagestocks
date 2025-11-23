@@ -8,14 +8,14 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, getUserByEmail, decryptToken, updateSetupProgress } from '../lib/auth';
+import { validateSession, getUserByEmail, decryptToken, updateSetupProgress } from '../lib/core/auth';
 import {
   autoDetectTemplate,
   testDatabaseRead,
   testDatabaseWrite,
   testPageRead,
-} from '../lib/template-detection';
-import { CURRENT_VERSION } from '../lib/template-versions';
+} from '../lib/domain/templates/detection';
+import { CURRENT_VERSION } from '../lib/domain/templates/versions';
 import { Client } from '@notionhq/client';
 
 interface SetupRequest {

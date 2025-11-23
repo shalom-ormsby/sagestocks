@@ -16,9 +16,9 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { RateLimiter } from '../lib/rate-limiter';
-import { validateSession, getUserByEmail } from '../lib/auth';
-import { log, LogLevel } from '../lib/logger';
+import { RateLimiter } from '../lib/core/rate-limiter';
+import { validateSession, getUserByEmail } from '../lib/core/auth';
+import { log, LogLevel } from '../lib/core/logger';
 
 export interface UsageResponse {
   success: boolean;

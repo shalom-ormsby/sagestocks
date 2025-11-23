@@ -8,10 +8,10 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, getUserByEmail, decryptToken, updateSetupProgress, updateUserDatabaseIds } from '../../lib/auth';
-import { autoDetectTemplate } from '../../lib/template-detection';
-import { log, LogLevel } from '../../lib/logger';
-import { withRetry } from '../../lib/utils';
+import { validateSession, getUserByEmail, decryptToken, updateSetupProgress, updateUserDatabaseIds } from '../../lib/core/auth';
+import { autoDetectTemplate } from '../../lib/domain/templates/detection';
+import { log, LogLevel } from '../../lib/core/logger';
+import { withRetry } from '../../lib/core/utils';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

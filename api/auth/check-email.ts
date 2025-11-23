@@ -9,8 +9,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { log, LogLevel } from '../../lib/logger';
-import { getUserByEmail, storeUserSession } from '../../lib/auth';
+import { log, LogLevel } from '../../lib/core/logger';
+import { getUserByEmail, storeUserSession } from '../../lib/core/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   try {

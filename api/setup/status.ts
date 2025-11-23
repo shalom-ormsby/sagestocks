@@ -11,8 +11,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { validateSession, getUserByEmail } from '../../lib/auth';
-import { log, LogLevel } from '../../lib/logger';
+import { validateSession, getUserByEmail } from '../../lib/core/auth';
+import { log, LogLevel } from '../../lib/core/logger';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

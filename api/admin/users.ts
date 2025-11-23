@@ -6,8 +6,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAdmin, getAllUsers } from '../../lib/auth';
-import { log, LogLevel } from '../../lib/logger';
+import { requireAdmin, getAllUsers } from '../../lib/core/auth';
+import { log, LogLevel } from '../../lib/core/logger';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Require admin authentication

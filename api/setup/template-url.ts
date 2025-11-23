@@ -8,8 +8,8 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { log, LogLevel } from '../../lib/logger';
-import { normalizeNotionUrl, extractTemplateId } from '../../lib/utils';
+import { log, LogLevel } from '../../lib/core/logger';
+import { normalizeNotionUrl, extractTemplateId } from '../../lib/core/utils';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse): Promise<void> {
   try {
