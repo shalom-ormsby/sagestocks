@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         exists: true,
         hasTemplate: true,
         requiresOAuth: false,
-        redirectTo: '/analyze.html',
+        redirectTo: '/pages/analyze.html',
       });
       return;
     }

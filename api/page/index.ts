@@ -14,7 +14,7 @@ import { join } from 'path';
 export default function handler(_req: VercelRequest, res: VercelResponse): void {
   try {
     // Read the HTML file from the public directory
-    const htmlPath = join(process.cwd(), 'public', 'analyze.html');
+    const htmlPath = join(process.cwd(), 'public', 'pages', 'analyze.html');
     const html = readFileSync(htmlPath, 'utf-8');
 
     // Set appropriate headers
