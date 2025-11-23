@@ -1,29 +1,39 @@
 # Sage Stocks
 
-*Last updated: November 3, 2025 at 9:09 AM*
+*Last updated: November 23, 2025*
 
-**A serverless stock analysis platform with LLM-powered insights, multi-factor scoring, and intelligent rate limiting.**
+**AI that never guesses, never hallucinates, and never lets emotion cloud judgment.**
 
-**Version:** 1.0.0-beta.1 (v1.0.2 in development)
-**Status:** Production-ready backend, HTML analyzer interface in beta
+Genius-level financial intelligence that simultaneously analyzes the fundamentals, technicals, market regime, and sector dynamics of individual stocks in the context of the global market.
+
+**Version:** v0.1.0 (User) / v1.4.0 (Dev)
+
+**Status:** Production-ready with market context integration, delta-first analysis, and event calendar
+
 **Author:** Shalom Ormsby
 
 ---
 
 ## Overview
 
-Sage Stocks is a **personal decision-support tool** for equity analysis, built on a serverless TypeScript architecture. It combines real-time market data, sophisticated scoring algorithms, and AI-generated analysis to help you make informed trading decisions ahead of earnings and major market events.
+Sage Stocks is a serverless stock analysis platform built on a **two-layer architecture**:
+
+1. **The math layer:** Deterministic calculations based on professional-grade financial metrics
+2. **The interpretation layer:** AI analysis that applies proven investment frameworks (Buffett, Dalio, Lynch) systematically and unemotionally
 
 **Design Philosophy:** *Impeccable but simple.* Built for daily stock analyses, not enterprise scale. Clean architecture, production-grade code, minimal complexity.
 
 ### What It Does
 
-1. **Analyzes stocks in 18-25 seconds** using 11 FMP API calls + 6 FRED API calls
-2. **Generates composite scores** (1.0-5.0 scale) across 6 categories: Technical, Fundamental, Macro, Risk, Sentiment, Sector
-3. **Creates AI-generated narratives** with Google Gemini Flash 2.5 ($0.013/analysis, 2,000 tokens)
-4. **Tracks historical context** with delta calculations and trend detection
-5. **Enforces rate limits** (10 analyses/user/day) with session-based bypass codes
-6. **Syncs to Notion databases** for analysis storage and review (v1.0.2) → PostgreSQL migration planned (v2.0)
+- **Analyzes stocks in 18-25 seconds** using real-time market data (FMP + FRED APIs)
+- **Market context integration** - Analyzes market regime (Risk-On/Risk-Off/Transition) before individual stock analysis
+- **Delta-first analysis** - Shows what changed since last analysis, with 90-day historical tracking
+- **Event-aware** - Tracks earnings calls, dividends, splits, and guidance for portfolio stocks
+- **Generates composite scores** (1.0-5.0 scale) across 6 dimensions + market alignment
+- **Creates AI-generated analysis** with regime-aware narratives and historical context
+- **Syncs to Notion databases** for analysis storage and review → PostgreSQL migration planned (v2.0)
+- **Multi-tenant architecture** with per-user database isolation and OAuth authentication
+- **Enforces rate limits** (10 analyses/user/day) with intelligent bypass system
 
 ---
 
@@ -32,31 +42,35 @@ Sage Stocks is a **personal decision-support tool** for equity analysis, built o
 ### Technology Stack
 
 **Backend:**
+
 - **Platform:** Vercel Serverless Functions (300s timeout, Node.js 18+)
 - **Language:** TypeScript 5.3+
 - **Runtime:** Node.js serverless environment
 
 **Data Sources:**
+
 - **Financial Modeling Prep (FMP)** - Stock data, fundamentals, technical indicators ($22-29/month)
 - **FRED API** - Macroeconomic data (yield curve, VIX, unemployment) (free)
 - **Upstash Redis** - Distributed rate limiting state (REST API, serverless-native)
 
 **LLM Integration:**
+
 - **Provider-agnostic abstraction layer** supporting:
-  - Google Gemini (Flash 2.5, Flash 1.5) - Primary, $0.013/analysis
-  - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo)
-  - Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku)
+    - Google Gemini (Flash 2.5, Flash 1.5) - Primary, $0.013/analysis
+    - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo)
+    - Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku)
 - **Configurable via environment variable** (`LLM_PROVIDER`)
-- **50% token reduction** vs. original prompts (6,000 → 2,000 tokens)
+- **67% token reduction** vs. original prompts (6,000 → 2,000 tokens)
 
 **Integration:**
-- **Notion API** - Database operations (v1.0.2, transitioning to PostgreSQL in v2.0)
+
+- **Notion API** - Database operations (v1.4.0, transitioning to PostgreSQL in v2.0)
 - **REST APIs** - All external communication via HTTP
 
 ### API Endpoints
 
 | Endpoint | Method | Description | Timeout |
-|----------|--------|-------------|---------|
+| --- | --- | --- | --- |
 | `/api/health` | GET | Health check (uptime, version) | 10s |
 | `/api/analyze` | POST | Stock analysis (full workflow) | 300s |
 | `/api/webhook` | POST | Notion webhook handler | 60s |
@@ -64,47 +78,53 @@ Sage Stocks is a **personal decision-support tool** for equity analysis, built o
 | `/api/usage` | GET | Check rate limit usage | 10s |
 | `/api/api-status` | GET | API monitoring dashboard | 30s |
 
-### Data Flow (v1.0.2)
+### Data Flow (v1.4.0)
 
 ```
-User (WordPress Page)
+User (Web Interface)
     ↓ POST /api/analyze {ticker, userId}
 Vercel Serverless Function
     ↓ Check rate limit (Redis)
-    ↓ Fetch market data (FMP + FRED, 3-5s)
-    ↓ Calculate scores (1s)
-    ↓ Query historical analyses (Notion, 2-5s)
-    ↓ Compute deltas/trends (<1s)
-    ↓ Generate LLM analysis (Gemini, 10-20s)
+    ↓ [Step 0] Fetch market context (cached, <100ms or 3-5s if cache miss)
+        • Market regime classification (Risk-On/Risk-Off/Transition)
+        • Sector rotation analysis (11 sector ETFs)
+        • Economic indicators (VIX, Fed Funds, Unemployment, Yield Curve)
+    ↓ Fetch stock data (FMP + FRED, 3-5s)
+    ↓ Calculate scores including market alignment (1s)
+    ↓ Query 90-day historical analyses (Notion, 2-5s)
+    ↓ Compute deltas with regime context (<1s)
+    ↓ Generate delta-first LLM analysis (Gemini, 10-20s)
     ↓ Write to Notion (3 operations, 10-15s)
-        • Update Stock Analyses page (metrics)
+        • Update Stock Analyses page (metrics + market regime)
         • Create child analysis page (AI content)
-        • Archive to Stock History
+        • Archive to Stock History (with market regime)
     ↓ Return {pageUrl, scores, metadata}
 User
     → Opens Notion analysis page
 ```
 
-**Total Latency:** 30-45 seconds (under 60s Vercel Pro timeout)
+**Total Latency:** 30-45 seconds (under 300s Vercel Pro timeout)
 
 ---
 
 ## Key Features
 
-### Multi-Factor Scoring System
+### Multi-Dimensional Analysis
 
 Composite score (1.0-5.0) calculated from weighted categories:
 
 | Category | Weight | Metrics Included |
-|----------|--------|------------------|
-| **Technical** | 30% | RSI, MACD, Bollinger Bands, SMA crossovers, volume trends |
-| **Fundamental** | 35% | P/E ratio, EPS growth, revenue growth, profit margins, ROE |
-| **Macro** | 20% | Market regime, sector rotation, yield curve, VIX, unemployment |
-| **Risk** | 15% | Beta, volatility, drawdown, correlation to market |
+| --- | --- | --- |
+| **Technical** | 28.5% | RSI, MACD, Bollinger Bands, SMA crossovers, volume trends |
+| **Fundamental** | 33% | P/E ratio, EPS growth, revenue growth, profit margins, ROE |
+| **Macro** | 19% | Market regime, sector rotation, yield curve, VIX, unemployment |
+| **Risk** | 14.5% | Beta, volatility, drawdown, correlation to market |
+| **Market Alignment** | 5% | Regime fit (beta vs Risk-On/Off), sector leadership, VIX context |
 | **Sentiment** | - | News sentiment, analyst ratings (unweighted, for context) |
 | **Sector** | - | Relative sector performance vs. S&P 500 |
 
 **Recommendations:**
+
 - Strong Buy (4.0+)
 - Buy (3.5-3.99)
 - Moderate Buy (3.0-3.49)
@@ -113,7 +133,7 @@ Composite score (1.0-5.0) calculated from weighted categories:
 - Sell (1.5-1.99)
 - Strong Sell (<1.5)
 
-### LLM-Generated Analysis
+### AI-Generated Analysis
 
 7-section narrative generated by Google Gemini Flash 2.5:
 
@@ -126,6 +146,7 @@ Composite score (1.0-5.0) calculated from weighted categories:
 7. **Action Items** - Specific recommendations (e.g., "Wait for RSI < 30 before entry")
 
 **Token Optimization:**
+
 - Original prompts: 6,000 tokens → 30s generation time
 - Optimized prompts: 2,000 tokens → 10-15s generation time
 - **67% reduction** in tokens, **50% reduction** in latency
@@ -133,157 +154,79 @@ Composite score (1.0-5.0) calculated from weighted categories:
 ### Rate Limiting & Access Control
 
 **User-level quotas:**
+
 - 10 analyses per user per day (resets at midnight UTC)
 - Tracked in Upstash Redis (distributed state)
 - Graceful degradation (fails open if Redis unavailable)
 
 **Bypass code system:**
+
 - Session-based bypass (one-time code entry)
 - Unlimited analyses until midnight UTC
 - Stored in Redis with TTL expiry
 - Admin bypass via environment variable
 
 **Endpoints:**
+
 - `GET /api/usage` - Check remaining quota (non-consuming)
 - `POST /api/bypass` - Activate bypass code session
 - `GET /api/bypass?code=XXX` - URL parameter activation
-
-### Performance Optimizations
-
-**v1.0.11 Optimizations (Nov 2-3, 2025):**
-- **Sequential deletion** replaced parallel batches to eliminate Notion API conflicts
-- **90 blocks deleted in ~18 seconds** (was failing with 504 timeouts)
-- **Zero conflict errors** (was 50-93% failure rate with parallelism)
-- **Total analysis time:** 30-45 seconds (was timing out at 60+ seconds)
-
-**Key insights:**
-- Notion's eventual consistency requires sequential block operations
-- Pre-flight delays don't help (conflicts occur during operations)
-- Reliability > Performance for write-heavy operations
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Vercel account (Pro plan for 300s timeout)
-- API keys: FMP, FRED, Google Gemini, Notion
-- Upstash Redis database (free tier works)
-
-### Installation
-
-```bash
-# Clone repository
-git clone https://github.com/shalomormsby/sagestocks.git
-cd sagestocks
-
-# Install dependencies
-npm install
-
-# Copy environment template
-cp .env.example .env
-
-# Add your API keys to .env (never commit this file!)
-# See SETUP.md for detailed configuration instructions
-```
-
-### Local Development
-
-```bash
-# Start Vercel dev server (localhost:3000)
-npm run dev
-
-# Test analysis endpoint
-curl -X POST http://localhost:3000/api/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"ticker": "AAPL", "userId": "test-user"}'
-
-# Check health
-curl http://localhost:3000/api/health
-```
-
-### Deployment
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy to production
-vercel --prod
-
-# Configure environment variables in Vercel dashboard
-# See DEPLOYMENT.md for detailed instructions
-```
-
----
-
-## Documentation
-
-### Essential Reading
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System design, component structure, data flow diagrams
-- **[SETUP.md](SETUP.md)** - Complete setup guide for beta testers and contributors
-- **[API.md](API.md)** - API endpoint documentation with examples
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deployment checklist and production configuration
-- **[ROADMAP.md](ROADMAP.md)** - Current status, completed work, future plans
-
-### Additional Resources
-
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
-- **[docs/guides/](docs/guides/)** - Implementation guides (Notion setup, rate limiting, etc.)
-- **[.github/FILE_ORGANIZATION.md](.github/FILE_ORGANIZATION.md)** - File organization standards
 
 ---
 
 ## Project Status
 
-**Current Version:** v1.0.0-beta.1
+**Current Version:** v0.1.0 (User) / v1.4.0 (Dev)
 
-**Completed (v1.0.0):**
-- ✅ TypeScript/Vercel serverless architecture
-- ✅ Multi-factor scoring engine (~2,500 LOC)
-- ✅ FMP + FRED API integration (11 + 6 calls per analysis)
-- ✅ Rate limiting system (Upstash Redis)
+**Completed (v1.0-1.4):**
+
+- ✅ TypeScript/Vercel serverless architecture (~3,500 LOC)
+- ✅ Multi-factor scoring engine with market alignment (7 dimensions)
+- ✅ FMP + FRED API integration (23 calls for market context, 17 per stock)
+- ✅ Market context integration (v1.3.0) - Risk-On/Risk-Off regime classification
+- ✅ Delta-first analysis engine (v1.4.0) - 90-day historical tracking
+- ✅ Event calendar integration (v1.2.16) - Earnings, dividends, splits, guidance
+- ✅ Multi-tenant OAuth authentication with per-user database isolation
+- ✅ Rate limiting system (Upstash Redis, timezone-aware)
 - ✅ LLM abstraction layer (Google Gemini, OpenAI, Anthropic)
-- ✅ Notion database integration (read/write optimizations)
-- ✅ Performance optimizations (sequential deletion, conflict resolution)
+- ✅ Notion database integration (read/write optimizations, sequential deletion)
+- ✅ Performance optimizations (67% token reduction, 50% faster execution)
 
-**In Progress (v1.0.2):**
-- ⏳ HTML analyzer page (WordPress-hosted, Tailwind CSS + Vanilla JS)
-- ⏳ Admin dashboard for API monitoring
-- ⏳ User-facing analyzer interface (ticker input → view results)
+**Current Focus (v1.5-2.0):**
 
-**Planned (v2.0):**
+- 🔧 Onboarding robustness (auto-detection fixes, validation surface)
+- 🔧 Hallucination prevention system (validation + weekly audits)
+- 🔧 Market Context bug fixes (content routing, property population)
+- 📋 Production-ready Notion template with examples
+- 📋 Event-aware analysis prompts (surface upcoming events in AI context)
+
+**Planned (v2.0+):**
+
 - 📋 Next.js frontend application (responsive, mobile-first)
 - 📋 PostgreSQL migration (Supabase, 10-15x faster than Notion)
 - 📋 Trend charts (Recharts, score history over time)
 - 📋 Portfolio tracking and watchlists
 
-**Timeline:**
-- v1.0.2 completion: ~3-5 hours remaining
-- v2.0 migration: 25-35 hours (months 2-3)
-
-See [ROADMAP.md](ROADMAP.md) for detailed sprint planning.
+See [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md) for detailed history.
 
 ---
 
 ## Cost Structure
 
-**Monthly Operating Costs (v1.0.2):**
+**Monthly Operating Costs (v1.4.0):**
 
 | Service | Cost | Usage |
-|---------|------|-------|
+| --- | --- | --- |
 | Vercel Pro | $20/month | 300s timeout, unlimited invocations |
 | FMP API | $22-29/month | Stock data, fundamentals, technical indicators |
 | Google Gemini | $40/month | 3,000 analyses (@ $0.013 each) |
 | FRED API | Free | Macroeconomic data |
-| Notion | Free | Database storage (v1.0.2 only) |
+| Notion | Free | Database storage (v1.4.0 only) |
 | Upstash Redis | Free | Rate limiting state (under free tier limits) |
 | **Total** | **$82-89/month** | For personal use (up to 3,000 analyses/month) |
 
 **v2.0 Upgrade (PostgreSQL):**
+
 - Add Supabase: $0-25/month (free tier → Pro as needed)
 - Total: $102-134/month (10-15x faster database, unlimited scale)
 
@@ -294,20 +237,23 @@ See [ROADMAP.md](ROADMAP.md) for detailed sprint planning.
 **Business Source License 1.1**
 
 ### You CAN:
+
 - ✅ Use for personal, educational, and non-commercial purposes
 - ✅ View and study the source code
 - ✅ Modify for your own personal use
 - ✅ Fork on GitHub for non-commercial projects
 
 ### You CANNOT:
+
 - ❌ Provide commercial stock analysis services
 - ❌ Sell this software or derivative works
 - ❌ Compete with the original author's offerings
 
 ### Change Date: October 23, 2029
+
 After this date, the software becomes available under the **MIT License** (fully open source).
 
-**Commercial licensing:** Contact shalom.ormsby@gmail.com
+**Commercial licensing:** Contact [shalom.ormsby@gmail.com](mailto:shalom.ormsby@gmail.com)
 
 See [LICENSE](LICENSE) file for full terms.
 
@@ -316,15 +262,19 @@ See [LICENSE](LICENSE) file for full terms.
 ## Support & Contact
 
 **Author:** Shalom Ormsby
-**Email:** shalom.ormsby@gmail.com
+
+**Email:** [shalom.ormsby@gmail.com](mailto:shalom.ormsby@gmail.com)
+
 **Repository:** [github.com/shalomormsby/sagestocks](https://github.com/shalomormsby/sagestocks)
 
 **For issues:**
+
 - Check documentation in [docs/](docs/) folder first
 - Review [CHANGELOG.md](CHANGELOG.md) for recent changes
 - Open an issue on GitHub (when repository is public)
 
 **For bugs:**
+
 - Include: ticker, error message, expected vs. actual behavior
 - Check [ROADMAP.md](ROADMAP.md) to see if issue is already known
 - Provide Vercel function logs if possible
@@ -334,12 +284,14 @@ See [LICENSE](LICENSE) file for full terms.
 ## Contributing
 
 This is currently a personal project, but contributions are welcome for:
+
 - Bug reports and fixes
 - Documentation improvements
 - Performance optimizations
 - Feature suggestions (see [ROADMAP.md](ROADMAP.md) first)
 
 **Before contributing:**
+
 1. Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand system design
 2. Review [.github/FILE_ORGANIZATION.md](.github/FILE_ORGANIZATION.md) for file organization standards
 3. Check [ROADMAP.md](ROADMAP.md) to avoid duplicating planned work
@@ -349,12 +301,13 @@ This is currently a personal project, but contributions are welcome for:
 ## Acknowledgments
 
 Built with:
-- [Vercel](https://vercel.com) - Serverless platform
-- [Financial Modeling Prep](https://financialmodelingprep.com) - Market data
-- [FRED](https://fred.stlouisfed.org) - Economic data
-- [Google Gemini](https://ai.google.dev) - LLM analysis generation
-- [Notion](https://notion.so) - Database integration (v1.0.2)
-- [Upstash](https://upstash.com) - Redis rate limiting
+
+- Vercel - Serverless platform
+- Financial Modeling Prep - Market data
+- FRED - Economic data
+- Google Gemini - LLM analysis generation
+- Notion - Database integration (v1.4.0)
+- Upstash - Redis rate limiting
 
 ---
 
