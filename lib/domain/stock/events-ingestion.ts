@@ -18,6 +18,7 @@
 import { Client } from '@notionhq/client';
 import { FMPClient } from '../../integrations/fmp/client';
 import { info, warn, error as logError, createTimer } from '../../core/logger';
+import { decryptToken } from '../../core/auth';
 
 // ========================================
 // HELPER: Data Source ID Resolution
@@ -240,7 +241,7 @@ async function fetchBetaUsers(
         const userId = page.id;
         const email = props.Email?.email || '';
         const name = props.Name?.title?.[0]?.plain_text || '';
-        const accessToken = props['Access Token']?.rich_text?.[0]?.plain_text || '';
+        const encryptedToken = props['Access Token']?.rich_text?.[0]?.plain_text || '';
         const timezone = props.Timezone?.rich_text?.[0]?.plain_text || 'America/Los_Angeles';
 
         // Extract database IDs (multi-tenant configuration)
@@ -248,8 +249,17 @@ async function fetchBetaUsers(
         const stockHistoryDbId = props['Stock History DB ID']?.rich_text?.[0]?.plain_text || undefined;
         const stockEventsDbId = props['Stock Events DB ID']?.rich_text?.[0]?.plain_text || undefined;
 
-        if (!accessToken) {
+        if (!encryptedToken) {
           warn('User missing access token, skipping', { userId, email });
+          continue;
+        }
+
+        // Decrypt access token
+        let accessToken: string;
+        try {
+          accessToken = await decryptToken(encryptedToken);
+        } catch (error) {
+          warn('Failed to decrypt access token for user', { userId, email, error });
           continue;
         }
 
