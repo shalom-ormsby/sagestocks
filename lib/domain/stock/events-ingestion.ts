@@ -353,28 +353,41 @@ async function collectPortfolioWatchlistStocks(
       const dataSourceId = await getDataSourceId(notion, user.stockAnalysesDbId);
 
       // Query Stock Analyses for Portfolio or Watchlist stocks
-      // Check if Stock Type property exists, otherwise process all stocks
-      const response = await notion.dataSources.query({
-        data_source_id: dataSourceId,
-        filter: {
-          or: [
-            {
-              property: 'Stock Type',
-              select: {
-                equals: 'Portfolio',
+      // Try with Stock Type filter first, fall back to all stocks if property doesn't exist
+      let response: any;
+      try {
+        response = await notion.dataSources.query({
+          data_source_id: dataSourceId,
+          filter: {
+            or: [
+              {
+                property: 'Stock Type',
+                select: {
+                  equals: 'Portfolio',
+                },
               },
-            },
-            {
-              property: 'Stock Type',
-              select: {
-                equals: 'Watchlist',
+              {
+                property: 'Stock Type',
+                select: {
+                  equals: 'Watchlist',
+                },
               },
-            },
-          ],
-        },
-      });
-
-      metrics.notionApiCalls++;
+            ],
+          },
+        });
+        metrics.notionApiCalls++;
+      } catch (filterError: any) {
+        // If Stock Type property doesn't exist, query all stocks
+        if (filterError?.code === 'validation_error' && filterError?.message?.includes('Stock Type')) {
+          info(`Stock Type property not found for user ${user.email}, fetching all stocks`);
+          response = await notion.dataSources.query({
+            data_source_id: dataSourceId,
+          });
+          metrics.notionApiCalls++;
+        } else {
+          throw filterError;
+        }
+      }
 
       // Extract tickers
       for (const page of response.results) {
