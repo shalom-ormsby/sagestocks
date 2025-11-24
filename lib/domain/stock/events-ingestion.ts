@@ -739,6 +739,7 @@ async function writeEventsToNotionDatabase(
         metrics.notionApiCalls++;
       }
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       warn('Failed to write event to Notion', {
         ticker: event.ticker,
         eventType: event.eventType,
@@ -746,7 +747,7 @@ async function writeEventsToNotionDatabase(
       });
       metrics.eventsSkipped++;
       metrics.warnings.push(
-        `Event ${event.ticker} ${event.eventType}: Write failed`
+        `Event ${event.ticker} ${event.eventType}: Write failed - ${errorMsg}`
       );
     }
   }
