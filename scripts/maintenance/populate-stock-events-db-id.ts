@@ -9,7 +9,7 @@
  *
  * Environment variables required:
  *   - NOTION_API_KEY (admin token)
- *   - BETA_USERS_DB_ID
+ *   - NOTION_BETA_USERS_DB_ID
  */
 
 import * as dotenv from 'dotenv';
@@ -19,7 +19,7 @@ import { Client } from '@notionhq/client';
 dotenv.config();
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY || '';
-const BETA_USERS_DB_ID = process.env.BETA_USERS_DB_ID || '';
+const BETA_USERS_DB_ID = process.env.NOTION_BETA_USERS_DB_ID || '';
 
 // User-specific Stock Events DB IDs (get these from Notion URLs)
 const USER_STOCK_EVENTS_DBS: { [email: string]: string } = {
@@ -42,7 +42,7 @@ async function main() {
   }
 
   if (!BETA_USERS_DB_ID) {
-    console.error('❌ Missing BETA_USERS_DB_ID');
+    console.error('❌ Missing NOTION_BETA_USERS_DB_ID');
     process.exit(1);
   }
 

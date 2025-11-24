@@ -28,7 +28,7 @@ export const maxDuration = 300; // 5 minutes (need time for FMP fetch + per-user
 const CRON_SECRET = process.env.CRON_SECRET || '';
 const FMP_API_KEY = process.env.FMP_API_KEY || '';
 const NOTION_API_KEY = process.env.NOTION_API_KEY || ''; // Admin token
-const BETA_USERS_DB_ID = process.env.BETA_USERS_DB_ID || '';
+const BETA_USERS_DB_ID = process.env.NOTION_BETA_USERS_DB_ID || '';
 
 /**
  * Main cron handler
@@ -62,7 +62,7 @@ export default async function handler(
       res.status(500).json({
         success: false,
         error: 'Configuration error',
-        message: 'Missing required environment variables (FMP_API_KEY, NOTION_API_KEY, BETA_USERS_DB_ID)',
+        message: 'Missing required environment variables (FMP_API_KEY, NOTION_API_KEY, NOTION_BETA_USERS_DB_ID)',
       });
       return;
     }

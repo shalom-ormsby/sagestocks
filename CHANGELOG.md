@@ -220,10 +220,10 @@ Tests:
 
 **Environment Variables Required:**
 ```bash
-FMP_API_KEY=sk_...              # Financial Modeling Prep API key
-NOTION_API_KEY=ntn_...          # Admin Notion API token
-BETA_USERS_DB_ID=abc123...      # Beta Users database ID
-CRON_SECRET=...                 # Cron job authentication
+FMP_API_KEY=sk_...                   # Financial Modeling Prep API key
+NOTION_API_KEY=ntn_...               # Admin Notion API token
+NOTION_BETA_USERS_DB_ID=abc123...    # Beta Users database ID
+CRON_SECRET=...                      # Cron job authentication
 ```
 
 **User Impact:**

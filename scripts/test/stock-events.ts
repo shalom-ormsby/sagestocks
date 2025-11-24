@@ -9,7 +9,7 @@
  * Environment variables required:
  *   - FMP_API_KEY
  *   - NOTION_API_KEY (admin token)
- *   - BETA_USERS_DB_ID
+ *   - NOTION_BETA_USERS_DB_ID
  */
 
 import * as dotenv from 'dotenv';
@@ -21,7 +21,7 @@ dotenv.config();
 
 const FMP_API_KEY = process.env.FMP_API_KEY || '';
 const NOTION_API_KEY = process.env.NOTION_API_KEY || '';
-const BETA_USERS_DB_ID = process.env.BETA_USERS_DB_ID || '';
+const BETA_USERS_DB_ID = process.env.NOTION_BETA_USERS_DB_ID || '';
 
 async function main() {
   console.log('='.repeat(60));
@@ -41,7 +41,7 @@ async function main() {
   }
 
   if (!BETA_USERS_DB_ID) {
-    console.error('❌ Missing BETA_USERS_DB_ID');
+    console.error('❌ Missing NOTION_BETA_USERS_DB_ID');
     process.exit(1);
   }
 
