@@ -402,8 +402,9 @@ async function collectPortfolioWatchlistStocks(
         stockCount: response.results.length,
       });
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
       warn(`Failed to fetch stocks for user ${user.email}`, { error: err });
-      metrics.warnings.push(`User ${user.email}: Failed to fetch stocks`);
+      metrics.warnings.push(`User ${user.email}: Failed to fetch stocks - ${errorMsg}`);
       metrics.usersFailed++;
     }
   }
