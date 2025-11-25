@@ -344,33 +344,39 @@ export function buildDeltaFirstPrompt(context: AnalysisContext): string {
   prompt += `## 📝 Required Output Structure (Delta-First)\n\n`;
 
   prompt += `### Section 1: Executive Summary\n\n`;
-  prompt += `Start with color-coded callout:\n\n`;
+  prompt += `Start with color-coded callout (use tab indentation for all callout content):\n\n`;
   prompt += `<callout icon="${badge}" color="${calloutColor}">\n`;
-  prompt += `**${currentMetrics.recommendation.toUpperCase()}** | Entry: [range] | Target: [range] | Stop: [price]\n\n`;
+  prompt += `\t**${currentMetrics.recommendation.toUpperCase()}** | Entry: [range] | Target: [range] | Stop: [price]\n`;
 
   if (previousAnalysis && deltas) {
-    prompt += `\n**What Changed (${deltas.daysElapsed || '?'} days)**\n`;
-    prompt += `- Score: ${deltas.trendEmoji} ${formatDelta(deltas.scoreChange)} (${deltas.trendDirection})\n`;
-    prompt += `- Price: ${formatPercent(deltas.priceDeltas?.priceChangePercent || 0)}\n`;
-    prompt += `- [Biggest category change with interpretation]\n\n`;
+    prompt += `\t<empty-block/>\n`;
+    prompt += `\t**What Changed (${deltas.daysElapsed || '?'} days)**\n`;
+    prompt += `\t- Score: ${deltas.trendEmoji} ${formatDelta(deltas.scoreChange)} (${deltas.trendDirection})\n`;
+    prompt += `\t- Price: ${formatPercent(deltas.priceDeltas?.priceChangePercent || 0)}\n`;
+    prompt += `\t- [Biggest category change with interpretation]\n`;
   }
 
-  prompt += `\n**Why Now?**\n`;
-  prompt += `- [Time-sensitive catalyst or setup]\n`;
-  prompt += `- [Key technical/fundamental confirmation]\n`;
-  prompt += `- [Risk/reward or timing element]\n\n`;
+  prompt += `\t<empty-block/>\n`;
+  prompt += `\t**Why Now?**\n`;
+  prompt += `\t- [Time-sensitive catalyst or setup]\n`;
+  prompt += `\t- [Key technical/fundamental confirmation]\n`;
+  prompt += `\t- [Risk/reward or timing element]\n`;
 
-  prompt += `\n**Key Risks**\n`;
-  prompt += `⚠️ [Risk 1]\n`;
-  prompt += `⚠️ [Risk 2]\n`;
-  prompt += `⚠️ [Risk 3]\n\n`;
+  prompt += `\t<empty-block/>\n`;
+  prompt += `\t**Key Risks**\n`;
+  prompt += `\t- ⚠️ [Risk 1]\n`;
+  prompt += `\t- ⚠️ [Risk 2]\n`;
+  prompt += `\t- ⚠️ [Risk 3]\n`;
 
-  prompt += `**Thesis:** [1-2 sentences: advantage → catalyst → outcome]\n`;
+  prompt += `\t<empty-block/>\n`;
+  prompt += `\t**Thesis:** [1-2 sentences: advantage → catalyst → outcome]\n`;
   prompt += `</callout>\n\n`;
 
+  prompt += `---\n`;
   prompt += `### Section 2: Trade Setup\n\n`;
   prompt += `[Entry Zones table, Profit Targets table, Key Dates (future only!)]\n\n`;
 
+  prompt += `---\n`;
   prompt += `### Section 3: Catalysts & Risks\n\n`;
   if (previousAnalysis && deltas) {
     prompt += `**What Changed in Setup:**\n`;
@@ -379,6 +385,7 @@ export function buildDeltaFirstPrompt(context: AnalysisContext): string {
   }
   prompt += `**Top 3 Catalysts 🚀** | **Top 3 Risks ⚠️**\n\n`;
 
+  prompt += `---\n`;
   prompt += `### Section 4: Technical Picture\n\n`;
   if (previousAnalysis && deltas) {
     prompt += `**Trend Status:** ${deltas.trendEmoji} ${deltas.trendDirection} over ${deltas.daysElapsed} days\n\n`;
@@ -386,6 +393,7 @@ export function buildDeltaFirstPrompt(context: AnalysisContext): string {
   prompt += `[Key Indicators table with Trend column if delta exists]\n`;
   prompt += `[Support/Resistance levels]\n\n`;
 
+  prompt += `---\n`;
   prompt += `### Section 5: Position Sizing\n\n`;
   prompt += `[Allocation table by risk tolerance]\n`;
   prompt += `[Portfolio considerations]\n`;

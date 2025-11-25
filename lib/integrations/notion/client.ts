@@ -1093,6 +1093,30 @@ export class NotionClient {
         continue;
       }
 
+      // Divider (---)
+      if (line === '---') {
+        blocks.push({
+          object: 'block',
+          type: 'divider',
+          divider: {},
+        });
+        i++;
+        continue;
+      }
+
+      // Empty block (<empty-block/>)
+      if (line === '<empty-block/>') {
+        blocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [{ type: 'text', text: { content: '' } }],
+          },
+        });
+        i++;
+        continue;
+      }
+
       // Callout block (<callout icon="..." color="..."> or \<callout icon="..." color="..."\>)
       // Handle both escaped and unescaped callout syntax
       const calloutStartPattern = /^\\?<callout\s+icon="([^"]+)"\s+color="([^"]+)"\\?>/;
@@ -1105,15 +1129,15 @@ export class NotionClient {
         const calloutLines: string[] = [];
         i++;
         while (i < lines.length) {
-          const contentLine = lines[i].trim();
-          // Match both </callout> and \</callout\>
-          if (contentLine === '</callout>' || contentLine === '\\</callout\\>') {
+          const contentLine = lines[i];
+          // Match both </callout> and \</callout\> (check trimmed version)
+          const trimmedContentLine = contentLine.trim();
+          if (trimmedContentLine === '</callout>' || trimmedContentLine === '\\</callout\\>') {
             i++; // Move past closing tag
             break;
           }
-          if (contentLine) {
-            calloutLines.push(contentLine);
-          }
+          // Keep original line (with tabs/spaces) for proper indentation parsing
+          calloutLines.push(contentLine);
           i++;
         }
 
@@ -1131,23 +1155,22 @@ export class NotionClient {
         };
         const notionColor = colorMap[color] || color;
 
-        // Parse callout content as rich text
-        const richText: Array<any> = [];
-        for (const contentLine of calloutLines) {
-          // Add newline between lines (except first)
-          if (richText.length > 0) {
-            richText.push({ type: 'text', text: { content: '\n' } });
-          }
-          richText.push(...this.parseRichText(contentLine));
-        }
+        // Parse callout content as child blocks (not flat rich_text)
+        // Remove leading tabs/spaces from callout content (they're indentation markers in the prompt)
+        const calloutContent = calloutLines
+          .map(line => line.replace(/^\t/, '')) // Remove one leading tab if present
+          .join('\n');
+
+        const calloutChildren = this.markdownToBlocks(calloutContent);
 
         blocks.push({
           object: 'block',
           type: 'callout',
           callout: {
-            rich_text: richText.length > 0 ? richText : [{ type: 'text', text: { content: '' } }],
+            rich_text: [{ type: 'text', text: { content: '' } }], // Empty rich_text required by API
             icon: { emoji: icon },
             color: notionColor,
+            children: calloutChildren.length > 0 ? calloutChildren : undefined,
           },
         });
         continue;
