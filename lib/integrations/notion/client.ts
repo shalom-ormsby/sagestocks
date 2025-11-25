@@ -196,6 +196,8 @@ export class NotionClient {
    * Updates existing page if ticker exists, creates new page otherwise
    *
    * Note: Content Status is NOT set here. It's managed by the /api/analyze endpoint.
+   *
+   * @throws Error if upsert fails after retries
    */
   private async upsertAnalyses(
     ticker: string,
@@ -223,6 +225,11 @@ export class NotionClient {
           `Notion updatePage(${ticker})`,
           { maxAttempts: 2 } // Fewer retries for writes
         );
+
+        if (!response || !response.id) {
+          throw new Error(`Failed to update Stock Analyses page for ${ticker}`);
+        }
+
         return response.id;
       } else {
         // Create new page with retry
@@ -235,11 +242,19 @@ export class NotionClient {
           `Notion createPage(${ticker})`,
           { maxAttempts: 2 } // Fewer retries for writes
         );
+
+        if (!response || !response.id) {
+          throw new Error(`Failed to create Stock Analyses page for ${ticker}`);
+        }
+
         return response.id;
       }
     } catch (error) {
       console.error('[Notion] Analyses upsert error:', error);
-      return null;
+      // Re-throw to make failures explicit instead of returning null silently
+      throw new Error(
+        `Stock Analyses upsert failed for ${ticker}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

@@ -22,6 +22,7 @@ import { reportScheduledTaskError } from '../shared/bug-reporter';
 import { getMarketContext, MarketContext } from '../domain/market/index';
 import { createFMPClient } from '../integrations/fmp/client';
 import { createFREDClient } from '../integrations/fred/client';
+import { setAnalysisError } from '../shared/error-handler';
 
 // Environment configuration
 const ANALYSIS_DELAY_MS = parseInt(process.env.ANALYSIS_DELAY_MS || '8000', 10); // Default: 8 seconds
@@ -263,7 +264,7 @@ export async function processQueue(
       metrics.failed++;
 
       // Mark all subscribers' pages with error
-      await broadcastError(item.subscribers, analysisResult.error || 'Analysis failed');
+      await broadcastError(item.subscribers, analysisResult.error || 'Analysis failed', item.ticker);
       continue;
     }
 
@@ -272,7 +273,7 @@ export async function processQueue(
       console.error(`[ORCHESTRATOR]   → ✗ Analysis incomplete (missing required fields)`);
       metrics.failed++;
 
-      await broadcastError(item.subscribers, 'Analysis incomplete - missing required fields');
+      await broadcastError(item.subscribers, 'Analysis incomplete - missing required fields', item.ticker);
       continue;
     }
 
@@ -504,7 +505,12 @@ async function broadcastToUser(
 
       // Write to Notion (Stock Analyses + Stock History)
       // usePollingWorkflow = false because LLM analysis is already complete
-      await notionClient.syncToNotion(analysisData, false);
+      const syncResult = await notionClient.syncToNotion(analysisData, false);
+
+      // CRITICAL: Validate sync succeeded before marking "Complete"
+      if (!syncResult.analysesPageId) {
+        throw new Error('Sync failed: Stock Analyses page was not created or updated');
+      }
 
       // Set Status to "Complete" since analysis is done
       const notion = new Client({ auth: subscriber.accessToken, notionVersion: '2025-09-03' });
@@ -535,6 +541,27 @@ async function broadcastToUser(
         );
         await delay(5000); // 5s backoff
       } else {
+        // Max retries reached - set error state and notify admin
+        console.error(
+          `[ORCHESTRATOR]      ✗ Broadcast failed after ${maxRetries} attempts for ${subscriber.email}`
+        );
+
+        // Use centralized error handler to mark error state
+        const notion = new Client({ auth: subscriber.accessToken, notionVersion: '2025-09-03' });
+        await setAnalysisError(
+          notion,
+          subscriber.pageId,
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            ticker: analysisResult.ticker,
+            userEmail: subscriber.email,
+            timestamp: new Date(),
+            errorType: 'broadcast_failed',
+            phase: 'notion_write'
+          }
+        );
+
+        // Re-throw to trigger Promise.allSettled rejection (for metrics)
         throw new Error(
           `Broadcast failed after ${maxRetries} attempts: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -575,7 +602,8 @@ async function setAnalyzingStatus(subscribers: Subscriber[]): Promise<void> {
 
 async function broadcastError(
   subscribers: Subscriber[],
-  _errorMessage: string
+  errorMessage: string,
+  ticker?: string
 ): Promise<void> {
   console.log(`[ORCHESTRATOR]   → Broadcasting error to ${subscribers.length} subscribers...`);
 
@@ -583,28 +611,24 @@ async function broadcastError(
     try {
       const notion = new Client({ auth: subscriber.accessToken, notionVersion: '2025-09-03' });
 
-      // Try to update Status if it exists
-      // Don't fail if the property doesn't exist
-      try {
-        await notion.pages.update({
-          page_id: subscriber.pageId,
-          properties: {
-            'Status': {
-              status: { name: 'Error' },
-            },
-          },
-        });
-        console.log(`[ORCHESTRATOR]      ✓ Error marked for ${subscriber.email}`);
-      } catch (error: any) {
-        // If Status property doesn't exist, just log it
-        if (error.code === 'validation_error') {
-          console.log(`[ORCHESTRATOR]      ⚠️  Could not update Status for ${subscriber.email} (property may not exist)`);
-        } else {
-          throw error;
+      // Use centralized error handler to ensure consistent error state
+      await setAnalysisError(
+        notion,
+        subscriber.pageId,
+        new Error(errorMessage),
+        {
+          ticker: ticker || 'UNKNOWN',
+          userEmail: subscriber.email,
+          timestamp: new Date(),
+          errorType: 'analysis_failed',
+          phase: 'analysis'
         }
-      }
+      );
+
+      console.log(`[ORCHESTRATOR]      ✓ Error state set for ${subscriber.email}`);
     } catch (error) {
-      console.error(`[ORCHESTRATOR]      ✗ Failed to mark error for ${subscriber.email}:`, error);
+      console.error(`[ORCHESTRATOR]      ✗ Failed to set error state for ${subscriber.email}:`, error);
+      // Don't throw - we're already handling an error, don't cascade
     }
   });
 
