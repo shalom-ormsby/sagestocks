@@ -22,6 +22,407 @@ Figma offers two ways to connect via MCP:
 - Best for: Remote work, browser-based workflows, sharing access
 - Link-based workflow (paste Figma URLs)
 
+## Can Multiple LLMs Connect Simultaneously?
+
+**Yes, multiple LLMs can connect to the same Figma MCP server at the same time.**
+
+### How It Works
+
+The Model Context Protocol uses a client-server architecture where each client (LLM/code editor) maintains its own independent connection to the MCP server. There's no inherent limitation preventing multiple clients from connecting concurrently.
+
+**For Desktop Server (`http://127.0.0.1:3845/mcp`):**
+- Multiple applications on the **same machine** can connect simultaneously
+- For example: Claude Code, Cursor, and VS Code can all connect to the desktop server running on your computer at the same time
+- Each maintains its own session and can request design context independently
+
+**For Remote Server (`https://mcp.figma.com/mcp`):**
+- Multiple clients across different machines/browsers can connect
+- Each client authenticates with their own Figma account credentials
+- Rate limits apply per user/seat, not per connection
+- Standard Figma API rate limits apply (same as Tier 1 REST API)
+
+### Why Gemini/Antigravity Might Fail to Connect
+
+If Google Gemini (Antigravity) failed to connect, the most likely causes are:
+
+1. **Different Configuration Format:** Antigravity uses a JSON-based configuration file (`mcp_config.json`) rather than command-line setup
+2. **Missing Authentication:** The remote server wasn't properly authenticated through Antigravity's UI
+3. **Desktop Server Not Running:** For desktop server, Figma app must be open with MCP server enabled
+4. **Incorrect Configuration Syntax:** The JSON configuration might have syntax errors or wrong structure
+
+See the [platform-specific setup sections](#platform-specific-setup-guides) below for detailed instructions for each LLM platform.
+
+---
+
+## Platform-Specific Setup Guides
+
+The following sections provide tailored, step-by-step instructions for connecting Figma MCP to different LLM platforms. Each platform has its own configuration method and requirements.
+
+### Quick Navigation
+- [Claude Code Setup](#1-claude-code-setup) - Command-line based configuration
+- [Google Antigravity (Gemini) Setup](#2-google-antigravity-gemini-setup) - JSON configuration with UI
+- [Cursor Setup](#3-cursor-setup) - Settings-based JSON configuration
+
+---
+
+## 1. Claude Code Setup
+
+**Configuration Method:** Command-line interface
+**Difficulty:** Easy (2 commands)
+**Best For:** Developers comfortable with terminal commands
+
+### Desktop Server Setup
+
+#### Prerequisites
+1. Figma desktop app installed and updated
+2. Claude Code installed (`npm install -g @anthropic-ai/claude-code` or via installer)
+3. Figma Design file open in Dev Mode with MCP server enabled
+
+#### Step-by-Step Instructions
+
+1. **Enable Figma Desktop MCP Server:**
+   - Open Figma desktop app
+   - Open any Design file
+   - Press `Shift + D` to enter Dev Mode
+   - In the right panel (Inspect Panel), find "MCP server" section
+   - Click **"Enable desktop MCP server"**
+   - Wait for confirmation message
+
+2. **Add Server to Claude Code:**
+   ```bash
+   claude mcp add --transport http figma-desktop http://127.0.0.1:3845/mcp
+   ```
+
+3. **Verify Installation:**
+   ```bash
+   claude mcp list
+   ```
+   You should see `figma-desktop` in the list.
+
+4. **Test Connection:**
+   - Open Claude Code
+   - Type `/mcp` in a chat
+   - You should see `figma-desktop` listed with a green status indicator
+
+#### Common Issues & Fixes
+
+**Issue:** "Connection refused" error
+**Fix:** Ensure Figma desktop app is running and MCP server is enabled in Dev Mode
+
+**Issue:** Server not appearing in `/mcp` list
+**Fix:** Restart Claude Code after adding the server
+
+### Remote Server Setup
+
+1. **Add Remote Server:**
+   ```bash
+   claude mcp add --transport http figma https://mcp.figma.com/mcp
+   ```
+
+2. **Authenticate:**
+   - Type `/mcp` in Claude Code
+   - Select `figma` from the server list
+   - Click **"Authenticate"**
+   - Browser window will open
+   - Log into Figma and click **"Allow Access"**
+   - Return to Claude Code and confirm "Authentication successful"
+
+3. **Test Connection:**
+   - Copy a Figma frame link
+   - In Claude Code, ask: "What's in this Figma design: [paste link]"
+   - Claude should be able to access the design context
+
+---
+
+## 2. Google Antigravity (Gemini) Setup
+
+**Configuration Method:** JSON configuration file with UI
+**Difficulty:** Medium (requires JSON editing)
+**Best For:** Gemini 3.0 users in Google's Antigravity IDE
+
+> **What is Antigravity?** [Google Antigravity](https://antigravity.google/) is Google's new "Agent-First" development platform that integrates with Gemini 3.0. Released in November 2025, it allows AI agents to plan, code, and validate complete software tasks autonomously using Gemini's reasoning abilities.
+
+### Important Notes for Antigravity
+
+- Antigravity has **native MCP support** built into Gemini 3.0
+- Configuration uses a JSON file (`mcp_config.json`) managed through Antigravity's UI
+- The setup process is different from Claude Code's command-line approach
+
+### Desktop Server Setup
+
+#### Prerequisites
+1. [Google Antigravity](https://antigravity.google/) account (free for personal use)
+2. Figma desktop app with MCP server enabled
+3. Basic understanding of JSON syntax
+
+#### Step-by-Step Instructions
+
+1. **Enable Figma Desktop MCP Server:**
+   - Open Figma desktop app
+   - Open a Design file and enter Dev Mode (`Shift + D`)
+   - Enable "Desktop MCP server" in the inspect panel
+
+2. **Open Antigravity MCP Configuration:**
+   - Open Antigravity IDE
+   - Click the **`...`** (more_horiz menu) button in the **Agent pane** (side panel)
+   - Select **"MCP Servers"** from the dropdown
+
+3. **Add Custom Server:**
+   - In the MCP Store dialog, click **"Manage MCP Servers"** at the top
+   - Select **"View raw config"** to open the JSON editor
+   - You'll see your `mcp_config.json` file
+
+4. **Edit Configuration:**
+   Add the Figma desktop server configuration:
+
+   ```json
+   {
+     "mcpServers": {
+       "figma-desktop": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "@modelcontextprotocol/server-http-proxy",
+           "http://127.0.0.1:3845/mcp"
+         ]
+       }
+     }
+   }
+   ```
+
+   **Important:** If you already have other MCP servers configured, add the `figma-desktop` entry to your existing `mcpServers` object:
+
+   ```json
+   {
+     "mcpServers": {
+       "existing-server": {
+         "command": "...",
+         "args": ["..."]
+       },
+       "figma-desktop": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "@modelcontextprotocol/server-http-proxy",
+           "http://127.0.0.1:3845/mcp"
+         ]
+       }
+     }
+   }
+   ```
+
+5. **Save and Restart:**
+   - Save the `mcp_config.json` file
+   - Close and reopen Antigravity
+   - The Figma MCP server should now be available
+
+6. **Verify Connection:**
+   - Start a new agent session in Antigravity
+   - Select a frame in Figma (in Dev Mode)
+   - Ask Gemini: "Generate React code for the selected Figma component"
+   - Gemini should be able to access the design via the MCP server
+
+### Remote Server Setup
+
+1. **Open MCP Configuration:**
+   - Click **`...`** in the Agent pane → **"MCP Servers"**
+   - Click **"Manage MCP Servers"** → **"View raw config"**
+
+2. **Add Remote Server:**
+   ```json
+   {
+     "mcpServers": {
+       "figma-remote": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "@modelcontextprotocol/server-http-proxy",
+           "https://mcp.figma.com/mcp"
+         ]
+       }
+     }
+   }
+   ```
+
+3. **Authenticate (if required):**
+   - Authentication may happen automatically when you first use the server
+   - If prompted, follow the browser authentication flow
+   - Grant Antigravity access to your Figma account
+
+4. **Test with Figma Link:**
+   - Copy a Figma frame link
+   - In Antigravity, ask: "Implement this Figma design in Next.js: [paste link]"
+
+### Common Issues & Fixes
+
+**Issue:** "MCP server not found" or configuration not loading
+**Fix:**
+- Verify JSON syntax is correct (no trailing commas, proper quotes)
+- Ensure you're editing the correct `mcp_config.json` file
+- Restart Antigravity completely
+
+**Issue:** "Connection failed" to desktop server
+**Fix:**
+- Confirm Figma desktop app is running
+- Verify MCP server is enabled in Dev Mode
+- Check that port 3845 is not blocked by firewall
+- Try adding `"env": {}` to the server configuration
+
+**Issue:** Gemini can't access Figma tools
+**Fix:**
+- Make sure you're in an "Agent session" (not just a regular chat)
+- The MCP server needs to be loaded when the agent session starts
+- Try closing all sessions and starting a new agent session
+
+### Example Working Configuration
+
+Here's a complete example `mcp_config.json` with both desktop and remote Figma servers:
+
+```json
+{
+  "mcpServers": {
+    "figma-desktop": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-http-proxy",
+        "http://127.0.0.1:3845/mcp"
+      ]
+    },
+    "figma-remote": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-http-proxy",
+        "https://mcp.figma.com/mcp"
+      ]
+    }
+  }
+}
+```
+
+---
+
+## 3. Cursor Setup
+
+**Configuration Method:** Settings-based JSON configuration
+**Difficulty:** Easy (UI-based with JSON)
+**Best For:** Cursor IDE users
+
+### Desktop Server Setup
+
+#### Prerequisites
+1. [Cursor IDE](https://cursor.sh/) installed (latest version)
+2. Figma desktop app with MCP server enabled
+
+#### Step-by-Step Instructions
+
+1. **Enable Figma Desktop MCP Server:**
+   - Open Figma desktop app
+   - Open a Design file and press `Shift + D` for Dev Mode
+   - Enable "Desktop MCP server" in the inspect panel
+
+2. **Open Cursor MCP Settings:**
+   - Open Cursor IDE
+   - Navigate to **Cursor → Settings → Cursor Settings**
+   - Click on the **MCP** tab in the left sidebar
+
+3. **Add Figma Server:**
+   - Click **"Add new global MCP server"**
+   - A JSON editor will appear
+   - Add this configuration:
+
+   ```json
+   {
+     "mcpServers": {
+       "figma-desktop": {
+         "url": "http://127.0.0.1:3845/mcp"
+       }
+     }
+   }
+   ```
+
+4. **Save and Restart:**
+   - Save the configuration
+   - Restart Cursor completely (quit and relaunch)
+
+5. **Verify Connection:**
+   - Open a file in Cursor
+   - Start a chat with Cursor's AI
+   - The Figma MCP tools should now be available
+   - Test by asking: "List available MCP tools"
+
+### Remote Server Setup
+
+1. **Quick Setup (Recommended):**
+   - Visit the [Figma MCP deep link](https://cursor.directory/mcp/figma)
+   - Click **"Install"** when prompted
+   - Cursor will automatically configure the server
+
+2. **Manual Setup:**
+   - Go to **Cursor → Settings → Cursor Settings → MCP**
+   - Add this configuration:
+
+   ```json
+   {
+     "mcpServers": {
+       "figma-remote": {
+         "url": "https://mcp.figma.com/mcp"
+       }
+     }
+   }
+   ```
+
+3. **Authenticate:**
+   - In Cursor's MCP settings, find the Figma server
+   - Click **"Connect"** next to Figma
+   - Browser window opens
+   - Select **"Open"** in the authentication dialog
+   - Grant access permissions to your Figma account
+   - Return to Cursor - connection should show as active
+
+4. **Test Connection:**
+   - Copy a Figma frame link
+   - In Cursor chat, ask: "Generate TypeScript types for this Figma design: [paste link]"
+
+### Common Issues & Fixes
+
+**Issue:** Server not appearing after configuration
+**Fix:**
+- Ensure you completely quit and relaunched Cursor (not just closed windows)
+- Check JSON syntax for errors (commas, brackets, quotes)
+- Try removing and re-adding the server configuration
+
+**Issue:** "Connection timeout" to desktop server
+**Fix:**
+- Verify Figma desktop app is running
+- Confirm MCP server is enabled in Dev Mode
+- Check firewall isn't blocking port 3845
+- Try restarting Figma desktop app
+
+**Issue:** Authentication not working for remote server
+**Fix:**
+- Clear browser cache and try authenticating again
+- Ensure you're logged into Figma in your default browser
+- Try using the deep link installation method instead of manual config
+
+### Complete Configuration Example
+
+Here's a complete Cursor MCP configuration with both Figma servers and other common servers:
+
+```json
+{
+  "mcpServers": {
+    "figma-desktop": {
+      "url": "http://127.0.0.1:3845/mcp"
+    },
+    "figma-remote": {
+      "url": "https://mcp.figma.com/mcp"
+    }
+  }
+}
+```
+
 ---
 
 ## Desktop MCP Server Setup
@@ -331,6 +732,20 @@ Select a frame in Figma, then prompt:
 - [What is Model Context Protocol (MCP)?](https://www.figma.com/resource-library/what-is-mcp/)
 - [Builder.io: Claude Code + Figma MCP Server](https://www.builder.io/blog/claude-code-figma-mcp-server)
 
+### Platform-Specific Resources
+
+**Google Antigravity:**
+- [Google Antigravity Official Site](https://antigravity.google/)
+- [Google Antigravity MCP Documentation](https://antigravity.google/docs/mcp)
+- [Firebase MCP Server Documentation](https://firebase.google.com/docs/ai-assistance/mcp-server)
+- [Tutorial: Getting Started with Google Antigravity](https://medium.com/google-cloud/tutorial-getting-started-with-google-antigravity-b5cc74c103c2)
+- [Google Antigravity — Custom MCP Server Integration](https://medium.com/@jaintarun7/google-antigravity-custom-mcp-server-integration-to-improve-vibe-coding-f92ddbc1c22d)
+
+**MCP Protocol & Multiple Connections:**
+- [How to Connect Multiple MCP Servers to the Same LLM](https://milvus.io/ai-quick-reference/how-can-i-connect-multiple-model-context-protocol-mcp-servers-to-the-same-llm)
+- [Connect Any LLM to Any MCP Server](https://blog.dailydoseofds.com/p/connect-any-llm-to-any-mcp-server)
+- [Model Context Protocol Introduction](https://modelcontextprotocol.io/introduction)
+
 ### Community Resources
 - [Figma MCP Server Guide (GitHub)](https://github.com/figma/mcp-server-guide)
 - [Cursor Directory - Figma MCP](https://cursor.directory/mcp/figma)
@@ -349,5 +764,17 @@ Select a frame in Figma, then prompt:
 ## Summary
 
 The Figma MCP server bridges the gap between design and development by providing LLMs with direct access to Figma design context. Whether you choose the desktop server for local workflows or the remote server for cloud-based access, the setup process is straightforward and enables powerful design-to-code capabilities in your AI-powered development environment.
+
+**Key Takeaways:**
+- ✅ Multiple LLMs can connect to the same Figma MCP server simultaneously
+- ✅ Each platform (Claude Code, Antigravity, Cursor) has its own configuration method
+- ✅ Desktop server requires Figma app running with MCP enabled in Dev Mode
+- ✅ Remote server requires authentication but works without the desktop app
+- ✅ Configuration format varies: command-line (Claude Code) vs JSON (Antigravity, Cursor)
+
+**Quick Setup Recommendations:**
+- **Claude Code users:** Use the command-line method - fastest and simplest
+- **Antigravity (Gemini) users:** Edit `mcp_config.json` through the UI, ensure you're in an Agent session
+- **Cursor users:** Use Settings → MCP tab, or try the deep link for one-click setup
 
 For the most up-to-date information, always refer to the [official Figma developer documentation](https://developers.figma.com/docs/figma-mcp-server/).
