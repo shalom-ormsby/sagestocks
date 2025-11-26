@@ -33,15 +33,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if setup complete
-    if (!user.stockAnalysesDbId || !user.stockHistoryDbId || !user.sageStocksPageId) {
+    // Check if setup complete (all databases required)
+    if (!user.stockAnalysesDbId || !user.stockHistoryDbId || !user.marketContextDbId || !user.stockEventsDbId || !user.sageStocksPageId) {
       return res.status(503).json({
         valid: false,
         error: 'Setup incomplete',
-        message: 'Database IDs not configured. Please complete setup at https://sagestocks.vercel.app/setup',
+        message: 'All database IDs must be configured. Please complete setup at https://sagestocks.vercel.app/setup',
         configuration: {
           stockAnalysesDbId: !!user.stockAnalysesDbId,
           stockHistoryDbId: !!user.stockHistoryDbId,
+          marketContextDbId: !!user.marketContextDbId,
+          stockEventsDbId: !!user.stockEventsDbId,
           sageStocksPageId: !!user.sageStocksPageId,
         },
       });

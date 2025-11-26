@@ -238,22 +238,17 @@
     <!-- Top Nav Bar -->
     <nav class="glass-strong sticky top-0 z-50 border-b border-white/10">
         <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center space-x-6">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--electric-blue)] to-[var(--neon-purple)] flex items-center justify-center">
-                        <span class="text-2xl">⛰️</span>
-                    </div>
-                    <span class="text-xl font-bold">Sage Stocks</span>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--electric-blue)] to-[var(--neon-purple)] flex items-center justify-center">
+                    <span class="text-xl">⛰️</span>
                 </div>
+                <span class="text-lg font-medium">Sage Stocks</span>
+            </div>
+            <div class="flex items-center space-x-4">
                 <a href="/pages/analyze.html" class="text-sm hover:text-[var(--electric-blue)] transition duration-200">
                     Analyzer
                 </a>
                 <span class="text-sm font-medium" style="color: var(--electric-blue);">Settings</span>
-            </div>
-            <div class="flex items-center space-x-4">
-                <span class="text-sm text-[var(--muted-foreground)]">
-                    <span class="font-medium" id="user-email">Loading...</span>
-                </span>
                 <button
                     onclick="window.location.href='/api/auth/logout'"
                     class="btn-secondary text-sm py-2 px-4"
@@ -268,8 +263,11 @@
     <div class="max-w-5xl mx-auto p-6 py-12">
         <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-4xl font-bold mb-2">Settings</h1>
+            <h1 class="text-4xl font-semibold mb-2">Settings</h1>
             <p class="text-[var(--muted-foreground)]">Manage your account, usage, and database configuration</p>
+            <p class="text-sm text-[var(--muted-foreground)] mt-2">
+                <span class="font-medium" id="user-email-header">Loading...</span>
+            </p>
         </div>
 
         <!-- Tab Navigation -->
@@ -292,7 +290,7 @@
         <div id="usage-tab" class="tab-content active">
             <!-- Rate Limit Status Card -->
             <div class="glass-strong rounded-2xl p-8 mb-6">
-                <h2 class="text-2xl font-semibold mb-6">Usage & Rate Limits</h2>
+                <h2 class="text-2xl font-medium mb-6">Usage & Rate Limits</h2>
 
                 <div class="space-y-6">
                     <!-- Current Usage -->
@@ -449,7 +447,7 @@
 
                 <!-- Configuration Details -->
                 <div class="glass-strong rounded-2xl p-8">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl">📋</span>
                         Your Configuration
                     </h2>
@@ -458,7 +456,7 @@
 
                 <!-- Validation Details -->
                 <div class="glass-strong rounded-2xl p-8">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl">🔎</span>
                         Validation Details
                     </h2>
@@ -485,7 +483,7 @@
 
                 <!-- Actions -->
                 <div class="glass-strong rounded-2xl p-8">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl">🛠️</span>
                         Actions
                     </h2>
@@ -503,7 +501,7 @@
             <!-- Error State -->
             <div id="db-error" class="hidden glass-strong rounded-2xl p-12 text-center">
                 <div class="text-6xl mb-4">⚠️</div>
-                <h2 class="text-2xl font-bold mb-2" style="color: var(--crimson);">Validation Failed</h2>
+                <h2 class="text-2xl font-semibold mb-2" style="color: var(--crimson);">Validation Failed</h2>
                 <p id="db-error-message" class="text-[var(--muted-foreground)] mb-6"></p>
                 <div class="space-y-3 max-w-md mx-auto">
                     <a href="/" class="btn-primary block">
@@ -573,7 +571,7 @@
                 }
 
                 userData = data.user;
-                document.getElementById('user-email').textContent = data.user.email;
+                document.getElementById('user-email-header').textContent = data.user.email;
                 return true;
             } catch (error) {
                 console.error('Auth check failed:', error);

@@ -284,6 +284,8 @@ export default async function handler(
       await assertDatabasesValid(userAccessToken, {
         stockAnalysesDbId,
         stockHistoryDbId,
+        marketContextDbId: user.marketContextDbId || '',
+        stockEventsDbId: user.stockEventsDbId || '',
         sageStocksPageId: user.sageStocksPageId || '',
         userEmail: session.email,
         userId: user.id,
