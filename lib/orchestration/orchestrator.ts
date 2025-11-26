@@ -283,14 +283,48 @@ export async function processQueue(
     // Step 3c: Broadcast to all subscribers (parallel with isolation)
     const broadcastResults = await broadcastToSubscribers(item.subscribers, analysisResult);
 
+    const successfulCount = broadcastResults.filter(r => r.status === 'fulfilled').length;
+    const failedCount = broadcastResults.filter(r => r.status === 'rejected').length;
+
     metrics.totalBroadcasts += broadcastResults.length;
-    metrics.successfulBroadcasts += broadcastResults.filter(r => r.status === 'fulfilled').length;
-    metrics.failedBroadcasts += broadcastResults.filter(r => r.status === 'rejected').length;
+    metrics.successfulBroadcasts += successfulCount;
+    metrics.failedBroadcasts += failedCount;
 
     // Calculate API calls saved (N subscribers - 1 analysis = N-1 saved)
     metrics.apiCallsSaved += (item.subscribers.length - 1) * 17;
 
-    // Step 3d: Delay before next ticker (except last)
+    // Step 3d: Create Stock History entry ONCE per ticker (if at least one broadcast succeeded)
+    if (successfulCount > 0) {
+      try {
+        // Use first subscriber's credentials to create history entry
+        const firstSubscriber = item.subscribers[0];
+        const notionClient = createNotionClient({
+          apiKey: firstSubscriber.accessToken,
+          stockAnalysesDbId: firstSubscriber.stockAnalysesDbId,
+          stockHistoryDbId: firstSubscriber.stockHistoryDbId,
+          userId: firstSubscriber.notionUserId,
+          timezone: firstSubscriber.timezone,
+        });
+
+        // Archive to Stock History with market regime
+        const currentRegime = marketContext?.regime;
+        const historyPageId = await notionClient.archiveToHistory(
+          item.subscribers[0].pageId, // Use first subscriber's page as source
+          currentRegime
+        );
+
+        if (historyPageId) {
+          console.log(`[ORCHESTRATOR]   → ✓ Stock History created: ${historyPageId.substring(0, 8)}...`);
+        } else {
+          console.warn(`[ORCHESTRATOR]   → ⚠️  Stock History creation failed for ${item.ticker}`);
+        }
+      } catch (error) {
+        console.error(`[ORCHESTRATOR]   → ✗ Failed to create Stock History for ${item.ticker}:`, error);
+        // Don't fail the entire ticker - just log the error
+      }
+    }
+
+    // Step 3e: Delay before next ticker (except last)
     if (!isLastItem && ANALYSIS_DELAY_MS > 0) {
       console.log(`[ORCHESTRATOR]   → Waiting ${ANALYSIS_DELAY_MS}ms before next ticker...`);
       await delay(ANALYSIS_DELAY_MS);
@@ -503,9 +537,10 @@ async function broadcastToUser(
         apiCalls: analysisResult.apiCalls,
       };
 
-      // Write to Notion (Stock Analyses + Stock History)
-      // usePollingWorkflow = false because LLM analysis is already complete
-      const syncResult = await notionClient.syncToNotion(analysisData, false);
+      // Write to Notion (Stock Analyses only - NOT Stock History yet)
+      // usePollingWorkflow = true prevents duplicate Stock History creation per subscriber
+      // Stock History will be created ONCE per ticker after all broadcasts succeed
+      const syncResult = await notionClient.syncToNotion(analysisData, true);
 
       // CRITICAL: Validate sync succeeded before marking "Complete"
       if (!syncResult.analysesPageId) {
