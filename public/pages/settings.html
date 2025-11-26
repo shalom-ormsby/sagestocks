@@ -826,12 +826,20 @@
                                     <span class="text-[var(--foreground)]">${data.configuration.stockHistoryDbId || 'Not configured'}</span>
                                 </div>
                                 <div class="flex justify-between">
+                                    <span class="text-[var(--muted-foreground)]">Market Context DB:</span>
+                                    <span class="text-[var(--foreground)]">${data.configuration.marketContextDbId || 'Not configured'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-[var(--muted-foreground)]">Stock Events DB:</span>
+                                    <span class="text-[var(--foreground)]">${data.configuration.stockEventsDbId || 'Not configured'}</span>
+                                </div>
+                                <div class="flex justify-between">
                                     <span class="text-[var(--muted-foreground)]">Sage Stocks Page:</span>
                                     <span class="text-[var(--foreground)]">${data.configuration.sageStocksPageId || 'Not configured'}</span>
                                 </div>
-                                <div class="flex justify-between">
+                                <div class="flex justify-between border-t border-white/10 pt-4">
                                     <span class="text-[var(--muted-foreground)]">Template Version:</span>
-                                    <span class="text-[var(--foreground)]">${data.configuration.templateVersion || 'Unknown'}</span>
+                                    <span class="text-[var(--foreground)] font-semibold">${data.configuration.templateVersion || 'Unknown'}</span>
                                 </div>
                             </div>
                         </div>
@@ -864,6 +872,8 @@
 
                     detailsHtml += renderDbDetail(data.details.stockAnalysesDb, 'Stock Analyses Database', '📊');
                     detailsHtml += renderDbDetail(data.details.stockHistoryDb, 'Stock History Database', '📈');
+                    detailsHtml += renderDbDetail(data.details.marketContextDb, 'Market Context Database', '🌐');
+                    detailsHtml += renderDbDetail(data.details.stockEventsDb, 'Stock Events Database', '📅');
                     detailsHtml += renderDbDetail(data.details.sageStocksPage, 'Sage Stocks Page', '📄');
 
                     // Duplicates
@@ -878,6 +888,8 @@
                                 <div class="text-sm ml-12 space-y-2">
                                     <div class="text-[var(--muted-foreground)]">Stock Analyses: <span class="text-[var(--foreground)]">${dups.stockAnalysesDbs} databases</span></div>
                                     <div class="text-[var(--muted-foreground)]">Stock History: <span class="text-[var(--foreground)]">${dups.stockHistoryDbs} databases</span></div>
+                                    <div class="text-[var(--muted-foreground)]">Market Context: <span class="text-[var(--foreground)]">${dups.marketContextDbs} databases</span></div>
+                                    <div class="text-[var(--muted-foreground)]">Stock Events: <span class="text-[var(--foreground)]">${dups.stockEventsDbs} databases</span></div>
                                     <div class="text-[var(--muted-foreground)]">Sage Stocks Pages: <span class="text-[var(--foreground)]">${dups.sageStocksPages} pages</span></div>
                                 </div>
                             </div>

@@ -1,6 +1,6 @@
 {
   "name": "sagestocks",
-  "version": "1.0.0-beta.1",
+  "version": "0.1.0",
   "description": "Sage Stocks v1.0 - Vercel Serverless + Notion Integration",
   "main": "index.js",
   "scripts": {

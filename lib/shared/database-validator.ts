@@ -12,6 +12,8 @@ import { reportDatabaseConfigError } from './bug-reporter';
 export interface DatabaseConfig {
   stockAnalysesDbId: string;
   stockHistoryDbId: string;
+  marketContextDbId?: string;
+  stockEventsDbId?: string;
   sageStocksPageId: string;
   userEmail: string;
   userId: string;
@@ -25,7 +27,7 @@ export interface ValidationResult {
 }
 
 export interface ValidationError {
-  field: 'stockAnalysesDbId' | 'stockHistoryDbId' | 'sageStocksPageId';
+  field: 'stockAnalysesDbId' | 'stockHistoryDbId' | 'marketContextDbId' | 'stockEventsDbId' | 'sageStocksPageId';
   code: 'NOT_FOUND' | 'NO_ACCESS' | 'INVALID_TYPE' | 'MISSING';
   message: string;
   helpUrl?: string;
@@ -48,6 +50,16 @@ export interface ValidationDetails {
     title?: string;
     createdTime?: string;
   };
+  marketContextDb?: {
+    accessible: boolean;
+    title?: string;
+    createdTime?: string;
+  };
+  stockEventsDb?: {
+    accessible: boolean;
+    title?: string;
+    createdTime?: string;
+  };
   sageStocksPage?: {
     accessible: boolean;
     title?: string;
@@ -56,6 +68,8 @@ export interface ValidationDetails {
   duplicatesFound?: {
     stockAnalysesDbs: number;
     stockHistoryDbs: number;
+    marketContextDbs: number;
+    stockEventsDbs: number;
     sageStocksPages: number;
   };
 }
@@ -138,6 +152,70 @@ export async function validateDatabaseConfig(
     });
   }
 
+  // Validate Market Context Database (optional)
+  if (config.marketContextDbId) {
+    try {
+      const db = await notion.databases.retrieve({
+        database_id: config.marketContextDbId,
+      });
+      details.marketContextDb = {
+        accessible: true,
+        title: (db as any).title?.[0]?.plain_text || 'Untitled',
+        createdTime: (db as any).created_time,
+      };
+      log(LogLevel.INFO, 'Market Context DB accessible', {
+        dbId: config.marketContextDbId,
+        title: details.marketContextDb.title,
+      });
+    } catch (error: any) {
+      const errorCode = getErrorCode(error);
+      errors.push({
+        field: 'marketContextDbId',
+        code: errorCode,
+        message: `Market Context database not accessible: ${error.message}`,
+        helpUrl: 'https://sagestocks.vercel.app/setup',
+      });
+      details.marketContextDb = { accessible: false };
+      log(LogLevel.ERROR, 'Market Context DB validation failed', {
+        dbId: config.marketContextDbId,
+        error: error.message,
+        code: errorCode,
+      });
+    }
+  }
+
+  // Validate Stock Events Database (optional)
+  if (config.stockEventsDbId) {
+    try {
+      const db = await notion.databases.retrieve({
+        database_id: config.stockEventsDbId,
+      });
+      details.stockEventsDb = {
+        accessible: true,
+        title: (db as any).title?.[0]?.plain_text || 'Untitled',
+        createdTime: (db as any).created_time,
+      };
+      log(LogLevel.INFO, 'Stock Events DB accessible', {
+        dbId: config.stockEventsDbId,
+        title: details.stockEventsDb.title,
+      });
+    } catch (error: any) {
+      const errorCode = getErrorCode(error);
+      errors.push({
+        field: 'stockEventsDbId',
+        code: errorCode,
+        message: `Stock Events database not accessible: ${error.message}`,
+        helpUrl: 'https://sagestocks.vercel.app/setup',
+      });
+      details.stockEventsDb = { accessible: false };
+      log(LogLevel.ERROR, 'Stock Events DB validation failed', {
+        dbId: config.stockEventsDbId,
+        error: error.message,
+        code: errorCode,
+      });
+    }
+  }
+
   // Validate Sage Stocks Page
   try {
     const page = await notion.pages.retrieve({
@@ -172,11 +250,17 @@ export async function validateDatabaseConfig(
   // Check for duplicates in workspace (warning, not error)
   try {
     const duplicates = await checkForDuplicates(notion);
-    if (duplicates.stockAnalysesDbs > 1 || duplicates.stockHistoryDbs > 1) {
+    if (duplicates.stockAnalysesDbs > 1 || duplicates.stockHistoryDbs > 1 || duplicates.marketContextDbs > 1 || duplicates.stockEventsDbs > 1) {
+      const parts: string[] = [];
+      if (duplicates.stockAnalysesDbs > 1) parts.push(`${duplicates.stockAnalysesDbs} Stock Analyses DBs`);
+      if (duplicates.stockHistoryDbs > 1) parts.push(`${duplicates.stockHistoryDbs} Stock History DBs`);
+      if (duplicates.marketContextDbs > 1) parts.push(`${duplicates.marketContextDbs} Market Context DBs`);
+      if (duplicates.stockEventsDbs > 1) parts.push(`${duplicates.stockEventsDbs} Stock Events DBs`);
+
       warnings.push({
         field: 'general',
         code: 'DUPLICATES_FOUND',
-        message: `Found ${duplicates.stockAnalysesDbs} Stock Analyses DBs and ${duplicates.stockHistoryDbs} Stock History DBs. Consider cleaning up duplicates.`,
+        message: `Found ${parts.join(', ')}. Consider cleaning up duplicates.`,
       });
       details.duplicatesFound = duplicates;
     }
@@ -199,6 +283,8 @@ export async function validateDatabaseConfig(
         configuredDbIds: {
           stockAnalysesDbId: config.stockAnalysesDbId,
           stockHistoryDbId: config.stockHistoryDbId,
+          marketContextDbId: config.marketContextDbId,
+          stockEventsDbId: config.stockEventsDbId,
           sageStocksPageId: config.sageStocksPageId,
         },
         source: 'database-validator',
@@ -224,6 +310,8 @@ export async function validateDatabaseConfig(
 async function checkForDuplicates(notion: Client): Promise<{
   stockAnalysesDbs: number;
   stockHistoryDbs: number;
+  marketContextDbs: number;
+  stockEventsDbs: number;
   sageStocksPages: number;
 }> {
   const databasesResponse = await notion.search({
@@ -246,6 +334,16 @@ async function checkForDuplicates(notion: Client): Promise<{
     return title.toLowerCase().includes('stock history');
   });
 
+  const marketContextDbs = databasesResponse.results.filter((db: any) => {
+    const title = db.title?.[0]?.plain_text || '';
+    return title.toLowerCase().includes('market context');
+  });
+
+  const stockEventsDbs = databasesResponse.results.filter((db: any) => {
+    const title = db.title?.[0]?.plain_text || '';
+    return title.toLowerCase().includes('stock events');
+  });
+
   const sageStocksPages = pagesResponse.results.filter((page: any) => {
     const title = page.properties?.title?.title?.[0]?.plain_text || '';
     return title.toLowerCase().includes('sage stocks');
@@ -254,6 +352,8 @@ async function checkForDuplicates(notion: Client): Promise<{
   return {
     stockAnalysesDbs: stockAnalysesDbs.length,
     stockHistoryDbs: stockHistoryDbs.length,
+    marketContextDbs: marketContextDbs.length,
+    stockEventsDbs: stockEventsDbs.length,
     sageStocksPages: sageStocksPages.length,
   };
 }

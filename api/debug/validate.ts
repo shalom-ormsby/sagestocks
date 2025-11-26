@@ -13,6 +13,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { validateSession, getUserByEmail, decryptToken } from '../../lib/core/auth';
 import { validateDatabaseConfig } from '../../lib/shared/database-validator';
+import packageJson from '../../package.json';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -52,6 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const validation = await validateDatabaseConfig(userToken, {
       stockAnalysesDbId: user.stockAnalysesDbId,
       stockHistoryDbId: user.stockHistoryDbId,
+      marketContextDbId: user.marketContextDbId,
+      stockEventsDbId: user.stockEventsDbId,
       sageStocksPageId: user.sageStocksPageId,
       userEmail: user.email,
       userId: user.id,
@@ -67,6 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         configuration: {
           stockAnalysesDbId: user.stockAnalysesDbId,
           stockHistoryDbId: user.stockHistoryDbId,
+          marketContextDbId: user.marketContextDbId,
+          stockEventsDbId: user.stockEventsDbId,
           sageStocksPageId: user.sageStocksPageId,
         },
         helpUrl: 'https://sagestocks.vercel.app/setup',
@@ -83,8 +88,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       configuration: {
         stockAnalysesDbId: user.stockAnalysesDbId,
         stockHistoryDbId: user.stockHistoryDbId,
+        marketContextDbId: user.marketContextDbId,
+        stockEventsDbId: user.stockEventsDbId,
         sageStocksPageId: user.sageStocksPageId,
-        templateVersion: user.templateVersion,
+        templateVersion: packageJson.version,
       },
     });
   } catch (error: any) {

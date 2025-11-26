@@ -26,6 +26,8 @@ export interface BugReportContext {
   configuredDbIds?: {
     stockAnalysesDbId?: string;
     stockHistoryDbId?: string;
+    marketContextDbId?: string;
+    stockEventsDbId?: string;
     sageStocksPageId?: string;
   };
   [key: string]: any; // Allow any additional context
@@ -246,11 +248,15 @@ export async function reportDatabaseConfigError(
     configuredDbIds: {
       stockAnalysesDbId?: string;
       stockHistoryDbId?: string;
+      marketContextDbId?: string;
+      stockEventsDbId?: string;
       sageStocksPageId?: string;
     };
     foundDbIds?: {
       stockAnalysesDbs: string[];
       stockHistoryDbs: string[];
+      marketContextDbs: string[];
+      stockEventsDbs: string[];
       sageStocksPages: string[];
     };
     source: string;
@@ -280,11 +286,15 @@ function generateDiagnosis(
   configured: {
     stockAnalysesDbId?: string;
     stockHistoryDbId?: string;
+    marketContextDbId?: string;
+    stockEventsDbId?: string;
     sageStocksPageId?: string;
   },
   found?: {
     stockAnalysesDbs: string[];
     stockHistoryDbs: string[];
+    marketContextDbs: string[];
+    stockEventsDbs: string[];
     sageStocksPages: string[];
   }
 ): string {
@@ -311,6 +321,26 @@ function generateDiagnosis(
       }
     }
 
+    // Check Market Context
+    if (configured.marketContextDbId && !found.marketContextDbs.includes(configured.marketContextDbId)) {
+      issues.push(
+        `❌ Market Context DB ID not found in workspace (configured: ${configured.marketContextDbId})`
+      );
+      if (found.marketContextDbs.length > 0) {
+        issues.push(`   Available: ${found.marketContextDbs.join(', ')}`);
+      }
+    }
+
+    // Check Stock Events
+    if (configured.stockEventsDbId && !found.stockEventsDbs.includes(configured.stockEventsDbId)) {
+      issues.push(
+        `❌ Stock Events DB ID not found in workspace (configured: ${configured.stockEventsDbId})`
+      );
+      if (found.stockEventsDbs.length > 0) {
+        issues.push(`   Available: ${found.stockEventsDbs.join(', ')}`);
+      }
+    }
+
     // Check Sage Stocks Page
     if (configured.sageStocksPageId && !found.sageStocksPages.includes(configured.sageStocksPageId)) {
       issues.push(
@@ -327,6 +357,12 @@ function generateDiagnosis(
     }
     if (found.stockHistoryDbs.length > 1) {
       issues.push(`⚠️  Multiple Stock History databases found (${found.stockHistoryDbs.length})`);
+    }
+    if (found.marketContextDbs.length > 1) {
+      issues.push(`⚠️  Multiple Market Context databases found (${found.marketContextDbs.length})`);
+    }
+    if (found.stockEventsDbs.length > 1) {
+      issues.push(`⚠️  Multiple Stock Events databases found (${found.stockEventsDbs.length})`);
     }
   }
 
