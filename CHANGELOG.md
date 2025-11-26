@@ -1,6 +1,6 @@
 # Changelog
 
-**Last Updated:** November 18, 2025
+**Last Updated:** November 26, 2025
 
 All notable changes to Sage Stocks will be documented in this file.
 
@@ -96,6 +96,133 @@ All development versions are documented below with full technical details.
 ---
 
 ## [Unreleased]
+
+### 🐛 Critical Bug Fixes: Silent Failures & Database Duplicates (v1.2.20)
+
+**Date:** November 26, 2025
+**Priority:** CRITICAL
+**Type:** Bug Fix - Error Handling & Database Integrity
+**Status:** ✅ Fixed and Deployed
+
+**Summary:**
+Fixed three critical bugs that were corrupting the Stock History database and causing silent analysis failures. This completes the error handling improvements started in v1.2.19.
+
+**Problems Solved:**
+
+1. **System Errors Database Empty (0 entries)**
+   - Error handler code was deployed but `SYSTEM_ERRORS_DB_ID` environment variable was never set
+   - Admin notifications were silently skipped with console warnings
+   - No visibility into analysis failures
+
+2. **Stock History Massive Duplicates (357 records for 15 tickers)**
+   - Every ticker with N subscribers created N duplicate Stock History entries
+   - Example: QBTS had 7 subscribers → 7 duplicate entries on same day
+   - Caused by calling `syncToNotion(usePollingWorkflow=false)` per subscriber
+   - Each call created a new Stock History entry
+
+3. **Stale Error Messages Persisting**
+   - GOOG/NVDA showed Status: "Complete" with current timestamps but old error messages in Notes field
+   - `buildProperties` function didn't clear Notes field on successful analysis
+   - Old error text from previous failed analyses persisted indefinitely
+
+**Implementation:**
+
+**1. Environment Variable Configuration** ✅
+```bash
+vercel env add SYSTEM_ERRORS_DB_ID production
+# Value: b885d66ccfd74b66acd601ec4ce4ecba
+```
+
+**2. Fixed Stock History Duplicate Creation** ([lib/orchestration/orchestrator.ts:507-322](lib/orchestration/orchestrator.ts#L507-L322))
+
+**Before (BROKEN):**
+```typescript
+// Called ONCE per subscriber → N subscribers = N duplicates
+const syncResult = await notionClient.syncToNotion(analysisData, false);
+// ↑ usePollingWorkflow=false creates Stock History entry
+```
+
+**After (FIXED):**
+```typescript
+// Step 1: During broadcast (per subscriber)
+const syncResult = await notionClient.syncToNotion(analysisData, true);
+// ↑ usePollingWorkflow=true → NO Stock History creation
+
+// Step 2: After broadcasts complete (ONCE per ticker)
+if (successfulCount > 0) {
+  const historyPageId = await notionClient.archiveToHistory(
+    item.subscribers[0].pageId,
+    currentRegime
+  );
+  // ↑ Creates ONE Stock History entry per ticker
+}
+```
+
+**3. Clear Notes Field on Success** ([lib/integrations/notion/client.ts:553-559](lib/integrations/notion/client.ts#L553-L559))
+```typescript
+// Clear Notes field on successful analysis (prevents stale error messages)
+if (dbType === 'analyses') {
+  props['Notes'] = {
+    rich_text: [] // Empty array clears the field
+  };
+}
+```
+
+**Why v1.2.19 Didn't Work:**
+
+v1.2.19 created the error handler code correctly BUT:
+- ❌ Never set `SYSTEM_ERRORS_DB_ID` environment variable → Error handler silently skipped notifications
+- ❌ Didn't identify duplicate creation bug → Database corruption continued
+- ❌ Didn't fix Notes field clearing → Stale errors persisted
+
+**Expected Behavior After Fix:**
+
+| Issue | Before | After |
+|-------|--------|-------|
+| Stock History duplicates | 2-7 entries per ticker | 1 entry per ticker ✅ |
+| Notes field | Stale errors persist | Cleared on success ✅ |
+| System Errors DB | Empty (0 entries) | Populated with errors ✅ |
+| Silent failures | Status: "Complete" with stale data | Status: "Error" with details ✅ |
+
+**Database Statistics:**
+
+**Before Fix (Nov 26, 2025):**
+- Stock History records: 357 for 15 tickers (23.8 avg per ticker)
+- Duplicate rate: ~1400% (14x expected)
+- System Errors logged: 0
+- Silent failure rate: Unknown (not tracked)
+
+**After Fix (Target):**
+- Stock History records: 1 per ticker per day ✅
+- Duplicate rate: 0% ✅
+- System Errors logged: All failures tracked ✅
+- Silent failure rate: 0% ✅
+
+**Files Changed:**
+- [lib/orchestration/orchestrator.ts](lib/orchestration/orchestrator.ts) - Fixed duplicate creation, added Step 3d
+- [lib/integrations/notion/client.ts](lib/integrations/notion/client.ts) - Clear Notes field in `buildProperties`
+- Environment: Added `SYSTEM_ERRORS_DB_ID` to Vercel production
+
+**Cleanup Required:**
+- Manual removal of ~200+ duplicate Stock History records
+- Keep latest entry per ticker per day, delete older duplicates
+- Estimated time: 30-60 minutes
+
+**Testing:**
+- ✅ TypeScript compilation passes
+- ✅ Environment variable verified in Vercel
+- ⏳ Awaiting next cron run (5:30 AM PT) for production verification
+
+**Documentation:**
+- [docs/BUG_FIX_v1.2.20.md](docs/BUG_FIX_v1.2.20.md) - Comprehensive fix details
+- [docs/SYSTEM_ERRORS_DATABASE.md](docs/SYSTEM_ERRORS_DATABASE.md) - Setup guide (from v1.2.19)
+- [docs/BUG_FIX_SUMMARY.md](docs/BUG_FIX_SUMMARY.md) - Original fix attempt (v1.2.19)
+
+**Related Issues:**
+- RGTI skip issue: Still under investigation (didn't run on Nov 26 despite "Daily" cadence)
+- Priority: Medium (investigate after v1.2.20 proves stable)
+
+---
 
 ### 📅 Stock Events Ingestion Pipeline (v1.2.16)
 
