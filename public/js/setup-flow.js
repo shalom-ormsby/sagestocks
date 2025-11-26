@@ -394,21 +394,22 @@ function createStepIndicator(step, state, isVertical, isLast) {
   if (state === 'complete') {
     indicator.innerHTML = '✓';
   } else if (state === 'in-progress') {
-    indicator.innerHTML = `<div class="spinner" style="width: 20px; height: 20px; border: 3px solid #3B82F6; border-top-color: transparent; border-radius: 50%;"></div>`;
+    // Pulse indicator instead of spinner
+    indicator.textContent = step.number;
   } else {
     indicator.textContent = step.number;
   }
 
   const title = document.createElement('div');
-  title.className = 'mt-2 font-semibold text-sm text-gray-900';
+  title.className = 'step-title';
   title.textContent = step.title;
 
   const description = document.createElement('div');
-  description.className = 'text-xs text-gray-600 mt-1';
+  description.className = 'step-description';
   description.textContent = `${step.icon} ${step.description}`;
 
   const duration = document.createElement('div');
-  duration.className = 'text-xs text-gray-500 mt-1';
+  duration.className = 'step-duration';
   duration.textContent = step.duration ? `⏱️ ${step.duration}` : '';
 
   if (isVertical) {
@@ -512,63 +513,64 @@ function createStep1Content() {
   section.className = 'slide-in';
 
   section.innerHTML = `
-    <div class="mb-6 p-6 rounded-lg border bg-blue-50 border-blue-200">
-      <div class="flex items-start">
-        <div class="text-3xl mr-4">📄</div>
+    <div class="mb-6 p-6 glass-strong rounded-2xl">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">📄</div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-900 text-xl mb-2">Step 1 of 3: Duplicate the Sage Stocks Template</h3>
-          <p class="text-gray-700 mb-4">
+          <h3 class="font-semibold text-xl mb-2" style="color: var(--foreground);">Step 1 of 3: Duplicate the Sage Stocks Template</h3>
+          <p class="mb-4" style="color: var(--muted-foreground);">
             First, duplicate our template into your Notion workspace. This creates all the databases you'll need for stock analysis.
           </p>
-          
-          <div class="mb-4 p-4 bg-white border border-blue-200 rounded-lg">
-            <p class="text-sm text-gray-700 mb-3">
-              <strong>Important:</strong> You must duplicate the template <strong>before</strong> connecting your Notion account. 
+
+          <div class="mb-4 p-4 glass rounded-xl">
+            <p class="text-sm mb-3" style="color: var(--muted-foreground);">
+              <strong style="color: var(--foreground);">Important:</strong> You must duplicate the template <strong>before</strong> connecting your Notion account.
               This ensures the integration can access your duplicated pages.
             </p>
             <button
               id="open-template-button"
-              class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl"
+              class="btn-primary w-full"
             >
               📄 Open Template in Notion
             </button>
           </div>
 
-          <div class="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg mb-4">
-            <p class="text-yellow-800 font-medium mb-2">📋 Instructions:</p>
-            <ol class="text-sm text-yellow-700 space-y-2 ml-4 list-decimal">
+          <div class="p-4 glass rounded-xl mb-4" style="border: 1px solid var(--solar-orange);">
+            <p class="font-medium mb-2" style="color: var(--solar-orange);">📋 Instructions:</p>
+            <ol class="text-sm space-y-2 ml-4 list-decimal" style="color: var(--muted-foreground);">
               <li>Click "Open Template in Notion" above</li>
-              <li>In Notion, click the <strong>"Duplicate"</strong> button in the top-right</li>
+              <li>In Notion, click the <strong style="color: var(--foreground);">Duplicate</strong> button in the top-right</li>
               <li>Select your workspace and confirm</li>
               <li>Wait for the template to finish duplicating (this can take up to 5–6 minutes)</li>
               <li>Come back here and check the box below to confirm</li>
             </ol>
-            <p class="text-xs text-yellow-700 mt-3">
+            <p class="text-xs mt-3" style="color: var(--muted-foreground);">
               If Notion is still working, give it time — every database needs to finish syncing before you continue.
             </p>
           </div>
 
-          <div class="mb-4 p-4 bg-white border border-green-200 rounded-lg">
+          <div class="mb-4 p-4 glass rounded-xl">
             <label class="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 id="template-duplicated-checkbox"
-                class="mt-1 w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                class="mt-1 w-5 h-5 rounded focus:ring-2"
+                style="accent-color: var(--tech-green);"
               />
               <div class="flex-1">
-                <p class="text-sm font-medium text-gray-900">I can see "Sage Stocks" in my Notion workspace sidebar</p>
-                <p class="text-xs text-gray-600 mt-1">Make sure the template has finished duplicating before checking this box</p>
+                <p class="text-sm font-medium" style="color: var(--foreground);">I can see "Sage Stocks" in my Notion workspace sidebar</p>
+                <p class="text-xs mt-1" style="color: var(--muted-foreground);">Make sure the template has finished duplicating before checking this box</p>
               </div>
             </label>
           </div>
 
-          <p class="text-sm text-green-700 mb-4 hidden" id="template-duplicated-confirmation">
+          <p class="text-sm mb-4 hidden" id="template-duplicated-confirmation" style="color: var(--tech-green);">
             ✅ Great — your Sage Stocks workspace is ready. Next, you'll connect your Notion account and grant access to this template.
           </p>
 
           <button
             id="template-duplicated-button"
-            class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             disabled
           >
             ✅ Continue to Connect Notion
@@ -646,10 +648,10 @@ function createStep2Content() {
   // v1.2.9: Detect mobile/tablet devices
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const mobileWarning = isMobile ? `
-    <div class="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-      <p class="text-yellow-800 font-medium mb-2">📱 Mobile Device Detected</p>
-      <p class="text-sm text-yellow-700">
-        <strong>Important:</strong> Setup works best on desktop. If you encounter issues, please visit this page on a desktop computer for the smoothest experience.
+    <div class="mb-4 p-4 glass rounded-xl" style="border: 1px solid var(--solar-orange);">
+      <p class="font-medium mb-2" style="color: var(--solar-orange);">📱 Mobile Device Detected</p>
+      <p class="text-sm" style="color: var(--muted-foreground);">
+        <strong style="color: var(--foreground);">Important:</strong> Setup works best on desktop. If you encounter issues, please visit this page on a desktop computer for the smoothest experience.
       </p>
     </div>
   ` : '';
@@ -663,31 +665,31 @@ function createStep2Content() {
 
   section.innerHTML = `
     ${mobileWarning}
-    <div class="mb-6 p-6 rounded-lg border bg-blue-50 border-blue-200">
-      <div class="flex items-start">
-        <div class="text-3xl mr-4">🔗</div>
+    <div class="mb-6 p-6 glass-strong rounded-2xl">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">🔗</div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-900 text-xl mb-2">Step 2 of 3: Connect Your Notion Account</h3>
-          <p class="text-gray-700 mb-4">
-            Now connect your Notion account. <strong>Important:</strong> When Notion asks which pages to share, 
+          <h3 class="font-semibold text-xl mb-2" style="color: var(--foreground);">Step 2 of 3: Connect Your Notion Account</h3>
+          <p class="mb-4" style="color: var(--muted-foreground);">
+            Now connect your Notion account. <strong style="color: var(--foreground);">Important:</strong> When Notion asks which pages to share,
             make sure to <strong>select your duplicated Sage Stocks page</strong> so the integration can access it.
           </p>
-          
-          <div class="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-            <p class="text-yellow-800 font-medium mb-2">⚠️ Critical Step:</p>
-            <p class="text-sm text-yellow-700">
-              During OAuth, Notion will ask "Which pages do you want to share?" 
-              You <strong>must select your duplicated Sage Stocks page</strong> from the list. 
+
+          <div class="mb-4 p-4 glass rounded-xl" style="border: 1px solid var(--solar-orange);">
+            <p class="font-medium mb-2" style="color: var(--solar-orange);">⚠️ Critical Step:</p>
+            <p class="text-sm" style="color: var(--muted-foreground);">
+              During OAuth, Notion will ask "Which pages do you want to share?"
+              You <strong style="color: var(--foreground);">must select your duplicated Sage Stocks page</strong> from the list.
               If you don't see it, make sure you completed Step 1 and the template finished duplicating.
             </p>
           </div>
 
           ${needsEmailInput ? `
-            <div class="mb-4 p-4 bg-white border border-blue-200 rounded-lg">
-              <label class="block text-sm font-medium mb-2 text-gray-700">
+            <div class="mb-4 p-4 glass rounded-xl">
+              <label class="block text-sm font-medium mb-2" style="color: var(--foreground);">
                 📧 Enter your email to get started
               </label>
-              <p class="text-xs text-gray-600 mb-3">
+              <p class="text-xs mb-3" style="color: var(--muted-foreground);">
                 We'll use this to identify your account and send you updates. You only need to enter this once per browser.
               </p>
               <div class="flex gap-2">
@@ -695,19 +697,20 @@ function createStep2Content() {
                   type="email"
                   id="user-email-input"
                   placeholder="your@email.com"
-                  class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  class="input-glass flex-1"
                   required
                 />
               </div>
-              <p id="email-error" class="hidden text-sm text-red-600 mt-2"></p>
+              <p id="email-error" class="hidden text-sm mt-2" style="color: var(--crimson);"></p>
             </div>
           ` : savedEmail ? `
-            <div class="mb-4 p-3 bg-white border border-blue-200 rounded-lg">
-              <p class="text-sm text-gray-700">
-                📧 Signing in as: <strong>${savedEmail}</strong>
+            <div class="mb-4 p-3 glass rounded-xl">
+              <p class="text-sm" style="color: var(--muted-foreground);">
+                📧 Signing in as: <strong style="color: var(--foreground);">${savedEmail}</strong>
                 <button
                   onclick="localStorage.removeItem('sage_stocks_user_email'); window.location.reload();"
-                  class="ml-2 text-xs text-blue-600 hover:text-blue-700 underline"
+                  class="ml-2 text-xs underline"
+                  style="color: var(--electric-blue);"
                 >
                   Change email
                 </button>
@@ -715,18 +718,18 @@ function createStep2Content() {
             </div>
           ` : ''}
 
-          <div class="mb-4 p-4 bg-white border-2 border-yellow-200 rounded-lg">
-            <p class="text-sm font-semibold text-yellow-800 mb-2">When Notion asks "Which pages do you want to share?", select your duplicated Sage Stocks page.</p>
-            <p class="text-sm text-yellow-700">If you skip this step the integration can't reach your databases.</p>
-            <p class="text-xs text-yellow-600 mt-2"><strong>What if you don’t see it?</strong> Click “Select pages” → “Reload” in Notion, or go back to Step 1 to duplicate again.</p>
+          <div class="mb-4 p-4 glass rounded-xl" style="border: 1px solid var(--solar-orange);">
+            <p class="text-sm font-semibold mb-2" style="color: var(--solar-orange);">When Notion asks "Which pages do you want to share?", select your duplicated Sage Stocks page.</p>
+            <p class="text-sm" style="color: var(--muted-foreground);">If you skip this step the integration can't reach your databases.</p>
+            <p class="text-xs mt-2" style="color: var(--muted-foreground);"><strong style="color: var(--foreground);">What if you don't see it?</strong> Click "Select pages" → "Reload" in Notion, or go back to Step 1 to duplicate again.</p>
           </div>
 
-          <p class="text-sm text-gray-600 mb-4">
+          <p class="text-sm mb-4" style="color: var(--muted-foreground);">
             By signing in, you authorize Sage Stocks to create and write to a template in your Notion workspace.
           </p>
           <button
             id="signin-button"
-            class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <img src="/assets/notion-logo.png" alt="Notion" class="w-5 h-5 mr-2" onerror="this.style.display='none'" />
             Sign in with Notion
@@ -803,29 +806,29 @@ function createStep3Content() {
   section.className = 'slide-in';
 
   section.innerHTML = `
-    <div class="mb-6 p-6 rounded-lg border bg-green-50 border-green-200">
-      <div class="flex items-start">
-        <div class="text-3xl mr-4">✅</div>
+    <div class="mb-6 p-6 glass-strong rounded-2xl">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">✅</div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-900 text-xl mb-2">Step 3 of 3: Verify Your Workspace</h3>
+          <h3 class="font-semibold text-xl mb-2" style="color: var(--foreground);">Step 3 of 3: Verify Your Workspace</h3>
 
           <!-- Checking State -->
           <div id="step3-checking">
-            <p class="text-gray-700 mb-4">
+            <p class="mb-4" style="color: var(--muted-foreground);">
               Verifying your Notion workspace and detecting databases...
             </p>
             <div class="flex items-center gap-2">
-              <span class="inline-block spinner" style="width: 20px; height: 20px; border: 3px solid #3B82F6; border-top-color: transparent; border-radius: 50%;"></span>
-              <span class="text-sm text-gray-600">This will only take a moment</span>
+              <span class="inline-block spinner" style="width: 20px; height: 20px;"></span>
+              <span class="text-sm" style="color: var(--muted-foreground);">This will only take a moment</span>
             </div>
           </div>
 
           <!-- Workspace Verified - Show Analysis UI -->
           <div id="step3-verified" class="hidden">
-            <div class="p-4 bg-green-100 border-2 border-green-300 rounded-lg mb-4">
-              <p class="text-green-800 font-medium mb-2">✅ Workspace Verified!</p>
-              <p class="text-sm text-green-700">Your Sage Stocks workspace is set up and ready to use.</p>
-              <p class="text-xs text-green-700 mt-1">All required databases are connected. You're ready to run your first analysis.</p>
+            <div class="p-4 glass rounded-xl mb-4" style="border: 1px solid var(--tech-green);">
+              <p class="font-medium mb-2" style="color: var(--tech-green);">✅ Workspace Verified!</p>
+              <p class="text-sm" style="color: var(--muted-foreground);">Your Sage Stocks workspace is set up and ready to use.</p>
+              <p class="text-xs mt-1" style="color: var(--muted-foreground);">All required databases are connected. You're ready to run your first analysis.</p>
             </div>
             <!-- Analysis UI will be shown here -->
             <div id="step3-analysis-ui"></div>
@@ -833,28 +836,28 @@ function createStep3Content() {
 
           <!-- Workspace Not Found (Error State) -->
           <div id="step3-error" class="hidden">
-            <div class="p-4 bg-red-100 border-2 border-red-300 rounded-lg mb-4">
-              <p class="text-red-800 font-medium mb-2">❌ Integration Cannot Access Your Workspace</p>
-              <p class="text-sm text-red-700 mb-3">
+            <div class="p-4 glass rounded-xl mb-4" style="border: 1px solid var(--crimson);">
+              <p class="font-medium mb-2" style="color: var(--crimson);">❌ Integration Cannot Access Your Workspace</p>
+              <p class="text-sm mb-3" style="color: var(--muted-foreground);">
                 The integration cannot see your Sage Stocks workspace. This usually means the integration wasn't connected to your duplicated pages during OAuth.
               </p>
-              <p class="text-sm text-red-700 font-semibold mb-2">To fix this:</p>
-              <ol class="text-sm text-red-700 space-y-2 ml-4 list-decimal">
+              <p class="text-sm font-semibold mb-2" style="color: var(--crimson);">To fix this:</p>
+              <ol class="text-sm space-y-2 ml-4 list-decimal" style="color: var(--muted-foreground);">
                 <li>Make sure you duplicated the Sage Stocks template in Step 1.</li>
-                <li>Click "Start Over" below, redo Step 1 (duplicate) and Step 2 (connect), and when Notion shows “Select pages” choose your Sage Stocks page, then click Allow access.</li>
-                <li>Prefer not to redo OAuth? In Notion, open your Sage Stocks page → Click <code>⋯</code> → "Add connections" → Select "Sage Stocks" integration. This won’t delete any existing data.</li>
+                <li>Click "Start Over" below, redo Step 1 (duplicate) and Step 2 (connect), and when Notion shows "Select pages" choose your Sage Stocks page, then click Allow access.</li>
+                <li>Prefer not to redo OAuth? In Notion, open your Sage Stocks page → Click <code>⋯</code> → "Add connections" → Select "Sage Stocks" integration. This won't delete any existing data.</li>
               </ol>
             </div>
             <div class="flex flex-col sm:flex-row gap-3">
               <button
                 id="step3-retry"
-                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl"
+                class="btn-primary"
               >
                 🔄 Check Again
               </button>
               <button
                 id="step3-restart"
-                class="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all"
+                class="btn-secondary"
               >
                 ← Start Over
               </button>
@@ -938,36 +941,36 @@ function createStep3Content() {
 // Helper function to create analysis UI
 function createAnalysisUI() {
   return `
-    <div class="mb-6 p-6 rounded-lg border bg-indigo-50 border-indigo-200">
-      <div class="flex items-start">
-        <div class="text-3xl mr-4">📊</div>
+    <div class="mb-6 p-6 glass rounded-xl">
+      <div class="flex items-start gap-4">
+        <div class="text-4xl">📊</div>
         <div class="flex-1">
-          <h3 class="font-bold text-gray-900 text-xl mb-2">Run Your First Analysis</h3>
-          <p class="text-gray-700 mb-4">
+          <h3 class="font-semibold text-xl mb-2" style="color: var(--foreground);">Run Your First Analysis</h3>
+          <p class="mb-4" style="color: var(--muted-foreground);">
             Your workspace is ready! Enter any ticker symbol (like AAPL, TSLA, or GOOGL) and we'll generate a comprehensive analysis in your Notion workspace.
           </p>
-          <p class="text-xs text-gray-600 mb-4">
+          <p class="text-xs mb-4" style="color: var(--muted-foreground);">
             This usually takes 1–3 minutes. You can keep this tab open — we'll update here when your Notion pages are ready.
           </p>
           <div class="mb-4">
-            <label class="block text-sm font-medium mb-2 text-gray-700">Enter Ticker Symbol</label>
+            <label class="block text-sm font-medium mb-2" style="color: var(--foreground);">Enter Ticker Symbol</label>
             <input
               type="text"
               id="ticker-input"
               placeholder="e.g., AAPL"
-              class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all uppercase"
+              class="input-glass w-full uppercase"
               maxlength="10"
             />
           </div>
           <button
             id="analyze-button"
             disabled
-            class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             📊 Analyze Stock
           </button>
           <div id="analysis-status" class="hidden mt-4"></div>
-          <p class="text-xs text-gray-500 mt-3">Keep this tab open; we'll update this status as soon as your Notion workspace is ready.</p>
+          <p class="text-xs mt-3" style="color: var(--muted-foreground);">Keep this tab open; we'll update this status as soon as your Notion workspace is ready.</p>
         </div>
       </div>
     </div>
@@ -1258,15 +1261,16 @@ function showError(message) {
   clearErrors();
 
   const errorDiv = document.createElement('div');
-  errorDiv.className = 'setup-error bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded slide-in';
+  errorDiv.className = 'setup-error glass rounded-xl p-4 mb-6 slide-in';
+  errorDiv.style.borderLeft = '4px solid var(--crimson)';
   errorDiv.innerHTML = `
     <div class="flex items-start gap-3">
-      <span class="text-red-600 text-xl flex-shrink-0">⚠️</span>
+      <span class="text-xl flex-shrink-0" style="color: var(--crimson);">⚠️</span>
       <div class="flex-1">
-        <p class="font-medium text-red-800">Error</p>
-        <p class="text-sm text-red-700 mt-1">${message}</p>
+        <p class="font-medium" style="color: var(--crimson);">Error</p>
+        <p class="text-sm mt-1" style="color: var(--muted-foreground);">${message}</p>
       </div>
-      <button onclick="this.parentElement.parentElement.remove()" class="text-red-600 hover:text-red-800 flex-shrink-0">
+      <button onclick="this.parentElement.parentElement.remove()" class="flex-shrink-0" style="color: var(--crimson);">
         ✕
       </button>
     </div>

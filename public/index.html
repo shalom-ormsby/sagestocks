@@ -97,13 +97,14 @@
         .step-indicator {
             position: relative;
             z-index: 10;
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
+            font-size: 1.125rem;
             transition: all 0.3s ease;
         }
         .step-indicator.pending {
@@ -121,11 +122,32 @@
             background: var(--tech-green);
             border: 3px solid var(--tech-green);
             color: var(--tech-green-fg);
+            font-size: 1.5rem;
         }
         .step-indicator.error {
             background: rgba(255, 80, 80, 0.2);
             border: 3px solid var(--crimson);
             color: var(--crimson);
+        }
+
+        /* Step text styles */
+        .step-title {
+            color: var(--foreground);
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .step-description {
+            color: var(--muted-foreground);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .step-duration {
+            color: var(--muted-foreground);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
         }
 
         /* Progress badge */
