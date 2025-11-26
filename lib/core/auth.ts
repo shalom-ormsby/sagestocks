@@ -877,6 +877,7 @@ function mapNotionPageToUser(page: any): User {
     stockAnalysesDbId: props['Stock Analyses DB ID']?.rich_text?.[0]?.text?.content || undefined,
     stockHistoryDbId: props['Stock History DB ID']?.rich_text?.[0]?.text?.content || undefined,
     marketContextDbId: props['Market Context DB ID']?.rich_text?.[0]?.text?.content || undefined, // v1.1.0
+    stockEventsDbId: props['Stock Events DB ID']?.rich_text?.[0]?.text?.content || undefined,   // v1.2.16
     sageStocksPageId: props['Sage Stocks Page ID']?.rich_text?.[0]?.text?.content || undefined,
     templateVersion: props['Template Version']?.rich_text?.[0]?.text?.content || undefined,
     upgradeHistory: props['Upgrade History']?.rich_text?.[0]?.text?.content || undefined,
