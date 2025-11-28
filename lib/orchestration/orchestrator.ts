@@ -112,18 +112,32 @@ export async function collectStockRequests(
       }
 
       // Query user's Stock Analyses database (user-specific DB ID)
-      const response = await notion.dataSources.query({
-        data_source_id: dataSourceId,
-        filter: {
-          property: 'Analysis Cadence',
-          select: { equals: 'Daily' },
-        },
-      });
+      // Handle pagination to ensure all stocks are collected
+      const allResults: any[] = [];
+      let hasMore = true;
+      let cursor: string | undefined = undefined;
 
-      console.log(`[ORCHESTRATOR]   → User ${user.email}: Found ${response.results.length} stocks`);
+      while (hasMore) {
+        const response = await notion.dataSources.query({
+          data_source_id: dataSourceId,
+          filter: {
+            property: 'Analysis Cadence',
+            select: { equals: 'Daily' },
+          },
+          start_cursor: cursor,
+        });
+
+        allResults.push(...response.results);
+        hasMore = response.has_more;
+        cursor = response.next_cursor || undefined;
+      }
+
+      console.log(`[ORCHESTRATOR]   → User ${user.email}: Query returned ${allResults.length} raw results`);
+
+      console.log(`[ORCHESTRATOR]   → User ${user.email}: Found ${allResults.length} stocks`);
 
       // Extract tickers and add to map
-      for (const page of response.results) {
+      for (const page of allResults) {
         if (!('properties' in page)) {
           continue;
         }
@@ -132,6 +146,19 @@ export async function collectStockRequests(
         if (!ticker) {
           console.warn(`[ORCHESTRATOR]   → Skipping page ${page.id} (no ticker)`);
           continue;
+        }
+
+        // Log status for debugging stuck stocks
+        const status = (page.properties as any).Status?.status?.name || 'Unknown';
+        if (status === 'Analyzing') {
+          const lastAnalysis = (page.properties as any)['Last Auto-Analysis']?.date?.start;
+          const isStale = lastAnalysis && (Date.now() - new Date(lastAnalysis).getTime() > 24 * 60 * 60 * 1000);
+
+          if (isStale) {
+            console.warn(`[ORCHESTRATOR]   → ⚠️ Found STUCK stock: ${ticker} (Status: Analyzing, Last: ${lastAnalysis}) - Will be re-queued`);
+          } else {
+            console.log(`[ORCHESTRATOR]   → Found analyzing stock: ${ticker} (Status: Analyzing)`);
+          }
         }
 
         const tickerUpper = ticker.toUpperCase().trim();
@@ -240,7 +267,7 @@ export async function processQueue(
     const item = queue[i];
     const isLastItem = i === queue.length - 1;
 
-    console.log(`\n[ORCHESTRATOR] [${ i + 1}/${queue.length}] Processing ${item.ticker} (${item.subscribers.length} subscribers)...`);
+    console.log(`\n[ORCHESTRATOR] [${i + 1}/${queue.length}] Processing ${item.ticker} (${item.subscribers.length} subscribers)...`);
 
     if (DRY_RUN) {
       // Dry run - simulate without actual analysis
@@ -451,7 +478,7 @@ async function analyzeWithRetry(
 function isGeminiRateLimitError(error: string | undefined): boolean {
   if (!error) return false;
   return (error.includes('503') && error.includes('overloaded')) ||
-         (error.includes('429') && error.includes('quota'));
+    (error.includes('429') && error.includes('quota'));
 }
 
 /**

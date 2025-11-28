@@ -13,7 +13,7 @@ import { log, LogLevel } from '../core/logger';
 
 // Bug Reports database ID (from URL: https://www.notion.so/ormsby/68f392263ca94f79bd9d5882c4c657f2)
 const BUG_REPORTS_DB_ID = '68f392263ca94f79bd9d5882c4c657f2';
-const ADMIN_NOTION_KEY = process.env.NOTION_API_KEY;
+const ADMIN_NOTION_KEY = process.env.ADMIN_NOTION_TOKEN || process.env.ADMIN_NOTION_KEY || process.env.NOTION_API_KEY;
 
 export interface BugReportContext {
   ticker?: string;
@@ -147,28 +147,28 @@ export async function reportBug(
         // Stack Trace (if available)
         ...(errorStack
           ? [
-              {
-                object: 'block' as const,
-                type: 'heading_2' as const,
-                heading_2: {
-                  rich_text: [{ text: { content: '📚 Stack Trace' } }],
-                },
+            {
+              object: 'block' as const,
+              type: 'heading_2' as const,
+              heading_2: {
+                rich_text: [{ text: { content: '📚 Stack Trace' } }],
               },
-              {
-                object: 'block' as const,
-                type: 'code' as const,
-                code: {
-                  rich_text: [
-                    {
-                      text: {
-                        content: errorStack.substring(0, 2000), // Notion limit
-                      },
+            },
+            {
+              object: 'block' as const,
+              type: 'code' as const,
+              code: {
+                rich_text: [
+                  {
+                    text: {
+                      content: errorStack.substring(0, 2000), // Notion limit
                     },
-                  ],
-                  language: 'javascript',
-                },
+                  },
+                ],
+                language: 'javascript',
               },
-            ]
+            },
+          ]
           : []),
         // Timestamp
         {

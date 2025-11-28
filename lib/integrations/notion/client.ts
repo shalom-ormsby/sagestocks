@@ -553,6 +553,7 @@ export class NotionClient {
     // Clear Notes field on successful analysis (prevents stale error messages from persisting)
     // Only set for Stock Analyses (not Stock History)
     if (dbType === 'analyses') {
+      console.log(`[Notion] Clearing Notes field for ${ticker}`);
       props['Notes'] = {
         rich_text: [] // Empty array clears the field
       };

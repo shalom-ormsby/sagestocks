@@ -803,13 +803,25 @@ export async function getAllUsers(): Promise<User[]> {
   try {
     // Get data source ID for API v2025-09-03
     const dataSourceId = await getDataSourceId(BETA_USERS_DB_ID);
+    const users: User[] = [];
+    let hasMore = true;
+    let cursor: string | undefined = undefined;
 
-    const response = await notion.dataSources.query({
-      data_source_id: dataSourceId,
-      sorts: [{ property: 'Signup Date', direction: 'descending' }],
-    });
+    while (hasMore) {
+      const response = await notion.dataSources.query({
+        data_source_id: dataSourceId,
+        sorts: [{ property: 'Signup Date', direction: 'descending' }],
+        start_cursor: cursor,
+      });
 
-    return response.results.map((page) => mapNotionPageToUser(page as any));
+      const pageUsers = response.results.map((page) => mapNotionPageToUser(page as any));
+      users.push(...pageUsers);
+
+      hasMore = response.has_more;
+      cursor = response.next_cursor || undefined;
+    }
+
+    return users;
   } catch (error) {
     log(LogLevel.ERROR, 'Failed to get all users', {
       error: error instanceof Error ? error.message : String(error),
