@@ -136,170 +136,36 @@ The following sections provide tailored, step-by-step instructions for connectin
 
 ## 2. Google Antigravity (Gemini) Setup
 
-**Configuration Method:** JSON configuration file with UI
-**Difficulty:** Medium (requires JSON editing)
+**Configuration Method:** Native UI Integration (One-Click)
+**Difficulty:** Very Easy
 **Best For:** Gemini 3.0 users in Google's Antigravity IDE
 
-> **What is Antigravity?** [Google Antigravity](https://antigravity.google/) is Google's new "Agent-First" development platform that integrates with Gemini 3.0. Released in November 2025, it allows AI agents to plan, code, and validate complete software tasks autonomously using Gemini's reasoning abilities.
+### Simplified Setup (Recommended)
 
-### Important Notes for Antigravity
+Antigravity now includes a direct integration for Figma Dev Mode.
 
-- Antigravity has **native MCP support** built into Gemini 3.0
-- Configuration uses a JSON file (`mcp_config.json`) managed through Antigravity's UI
-- The setup process is different from Claude Code's command-line approach
+1.  **Open Agent Menu:**
+    - Click the **`...`** (more_horiz menu) button in the **Agent pane** (top right of the chat window).
 
-### Desktop Server Setup
+2.  **Connect to Figma:**
+    - Select **"Figma Dev Mode MCP"** from the menu.
+    - Click **"Connect"**.
+    - Follow the authentication prompt if requested.
 
-#### Prerequisites
-1. [Google Antigravity](https://antigravity.google/) account (free for personal use)
-2. Figma desktop app with MCP server enabled
-3. Basic understanding of JSON syntax
+3.  **Verify Connection:**
+    - You should see a confirmation that the server is connected.
+    - You can now immediately start using Figma commands like "Read this design node".
 
-#### Step-by-Step Instructions
+### Manual JSON Configuration (Legacy/Advanced)
 
-1. **Enable Figma Desktop MCP Server:**
-   - Open Figma desktop app
-   - Open a Design file and enter Dev Mode (`Shift + D`)
-   - Enable "Desktop MCP server" in the inspect panel
+*Note: Only use this if the automatic integration above fails or if you need custom arguments.*
 
-2. **Open Antigravity MCP Configuration:**
-   - Open Antigravity IDE
-   - Click the **`...`** (more_horiz menu) button in the **Agent pane** (side panel)
-   - Select **"MCP Servers"** from the dropdown
+1.  **Open MCP Configuration:**
+    - Click **`...`** in the Agent pane → **"MCP Servers"**.
+    - Click **"Manage MCP Servers"** → **"View raw config"**.
 
-3. **Add Custom Server:**
-   - In the MCP Store dialog, click **"Manage MCP Servers"** at the top
-   - Select **"View raw config"** to open the JSON editor
-   - You'll see your `mcp_config.json` file
-
-4. **Edit Configuration:**
-   Add the Figma desktop server configuration:
-
-   ```json
-   {
-     "mcpServers": {
-       "figma-desktop": {
-         "command": "npx",
-         "args": [
-           "-y",
-           "@modelcontextprotocol/server-http-proxy",
-           "http://127.0.0.1:3845/mcp"
-         ]
-       }
-     }
-   }
-   ```
-
-   **Important:** If you already have other MCP servers configured, add the `figma-desktop` entry to your existing `mcpServers` object:
-
-   ```json
-   {
-     "mcpServers": {
-       "existing-server": {
-         "command": "...",
-         "args": ["..."]
-       },
-       "figma-desktop": {
-         "command": "npx",
-         "args": [
-           "-y",
-           "@modelcontextprotocol/server-http-proxy",
-           "http://127.0.0.1:3845/mcp"
-         ]
-       }
-     }
-   }
-   ```
-
-5. **Save and Restart:**
-   - Save the `mcp_config.json` file
-   - Close and reopen Antigravity
-   - The Figma MCP server should now be available
-
-6. **Verify Connection:**
-   - Start a new agent session in Antigravity
-   - Select a frame in Figma (in Dev Mode)
-   - Ask Gemini: "Generate React code for the selected Figma component"
-   - Gemini should be able to access the design via the MCP server
-
-### Remote Server Setup
-
-1. **Open MCP Configuration:**
-   - Click **`...`** in the Agent pane → **"MCP Servers"**
-   - Click **"Manage MCP Servers"** → **"View raw config"**
-
-2. **Add Remote Server:**
-   ```json
-   {
-     "mcpServers": {
-       "figma-remote": {
-         "command": "npx",
-         "args": [
-           "-y",
-           "@modelcontextprotocol/server-http-proxy",
-           "https://mcp.figma.com/mcp"
-         ]
-       }
-     }
-   }
-   ```
-
-3. **Authenticate (if required):**
-   - Authentication may happen automatically when you first use the server
-   - If prompted, follow the browser authentication flow
-   - Grant Antigravity access to your Figma account
-
-4. **Test with Figma Link:**
-   - Copy a Figma frame link
-   - In Antigravity, ask: "Implement this Figma design in Next.js: [paste link]"
-
-### Common Issues & Fixes
-
-**Issue:** "MCP server not found" or configuration not loading
-**Fix:**
-- Verify JSON syntax is correct (no trailing commas, proper quotes)
-- Ensure you're editing the correct `mcp_config.json` file
-- Restart Antigravity completely
-
-**Issue:** "Connection failed" to desktop server
-**Fix:**
-- Confirm Figma desktop app is running
-- Verify MCP server is enabled in Dev Mode
-- Check that port 3845 is not blocked by firewall
-- Try adding `"env": {}` to the server configuration
-
-**Issue:** Gemini can't access Figma tools
-**Fix:**
-- Make sure you're in an "Agent session" (not just a regular chat)
-- The MCP server needs to be loaded when the agent session starts
-- Try closing all sessions and starting a new agent session
-
-### Example Working Configuration
-
-Here's a complete example `mcp_config.json` with both desktop and remote Figma servers:
-
-```json
-{
-  "mcpServers": {
-    "figma-desktop": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-http-proxy",
-        "http://127.0.0.1:3845/mcp"
-      ]
-    },
-    "figma-remote": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-http-proxy",
-        "https://mcp.figma.com/mcp"
-      ]
-    }
-  }
-}
-```
+2.  **Add Server Entry:**
+    Add the `figma-desktop` or `figma-remote` configuration to your `mcp_config.json` as shown in the [JSON examples below](#example-working-configuration).
 
 ---
 
