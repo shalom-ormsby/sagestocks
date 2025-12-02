@@ -329,35 +329,54 @@ export async function processQueue(
     // Calculate API calls saved (N subscribers - 1 analysis = N-1 saved)
     metrics.apiCallsSaved += (item.subscribers.length - 1) * 17;
 
-    // Step 3d: Create Stock History entry ONCE per ticker (if at least one broadcast succeeded)
+    // Step 3d: Create Stock History entry for EACH subscriber who had successful broadcast
+    // This ensures all users tracking the same ticker get their own history entry
     if (successfulCount > 0) {
-      try {
-        // Use first subscriber's credentials to create history entry
-        const firstSubscriber = item.subscribers[0];
-        const notionClient = createNotionClient({
-          apiKey: firstSubscriber.accessToken,
-          stockAnalysesDbId: firstSubscriber.stockAnalysesDbId,
-          stockHistoryDbId: firstSubscriber.stockHistoryDbId,
-          userId: firstSubscriber.notionUserId,
-          timezone: firstSubscriber.timezone,
-        });
+      console.log(`[ORCHESTRATOR]   → Creating Stock History for ${item.subscribers.length} subscribers...`);
 
-        // Archive to Stock History with market regime
-        const currentRegime = marketContext?.regime;
-        const historyPageId = await notionClient.archiveToHistory(
-          item.subscribers[0].pageId, // Use first subscriber's page as source
-          currentRegime
-        );
-
-        if (historyPageId) {
-          console.log(`[ORCHESTRATOR]   → ✓ Stock History created: ${historyPageId.substring(0, 8)}...`);
-        } else {
-          console.warn(`[ORCHESTRATOR]   → ⚠️  Stock History creation failed for ${item.ticker}`);
+      // Create history entry for each subscriber in parallel
+      const historyPromises = item.subscribers.map(async (subscriber, index) => {
+        // Check if this subscriber's broadcast was successful
+        const broadcastResult = broadcastResults[index];
+        if (broadcastResult.status !== 'fulfilled') {
+          console.log(`[ORCHESTRATOR]      ⚠️  Skipping history for ${subscriber.email} (broadcast failed)`);
+          return { email: subscriber.email, success: false, reason: 'broadcast_failed' };
         }
-      } catch (error) {
-        console.error(`[ORCHESTRATOR]   → ✗ Failed to create Stock History for ${item.ticker}:`, error);
-        // Don't fail the entire ticker - just log the error
-      }
+
+        try {
+          const notionClient = createNotionClient({
+            apiKey: subscriber.accessToken,
+            stockAnalysesDbId: subscriber.stockAnalysesDbId,
+            stockHistoryDbId: subscriber.stockHistoryDbId,
+            userId: subscriber.notionUserId,
+            timezone: subscriber.timezone,
+          });
+
+          // Archive to Stock History with market regime
+          const currentRegime = marketContext?.regime;
+          const historyPageId = await notionClient.archiveToHistory(
+            subscriber.pageId,
+            currentRegime
+          );
+
+          if (historyPageId) {
+            console.log(`[ORCHESTRATOR]      ✓ ${subscriber.email}: History created (${historyPageId.substring(0, 8)}...)`);
+            return { email: subscriber.email, success: true, historyPageId };
+          } else {
+            console.warn(`[ORCHESTRATOR]      ⚠️  ${subscriber.email}: History creation returned null`);
+            return { email: subscriber.email, success: false, reason: 'returned_null' };
+          }
+        } catch (error) {
+          console.error(`[ORCHESTRATOR]      ✗ ${subscriber.email}: Failed to create history:`, error);
+          return { email: subscriber.email, success: false, reason: error instanceof Error ? error.message : String(error) };
+        }
+      });
+
+      // Wait for all history creation attempts
+      const historyResults = await Promise.allSettled(historyPromises);
+      const historySuccessCount = historyResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+
+      console.log(`[ORCHESTRATOR]   → Stock History: ${historySuccessCount}/${item.subscribers.length} created successfully`);
     }
 
     // Step 3e: Delay before next ticker (except last)
