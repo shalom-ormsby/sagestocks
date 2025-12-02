@@ -1226,10 +1226,20 @@ stock-intelligence/
        │   ├─▶ For each subscriber:
        │   │   ├─▶ broadcastToUser() with retry (5s backoff)
        │   │   ├─▶ Write to Stock Analyses DB
-       │   │   └─▶ Write to Stock History DB
+       │   │   └─▶ (Stock History deferred to step 4d - see note below)
        │   └─▶ Log success/failure per user
        │
-       └─▶ 4d. Rate Limit Delay
+       ├─▶ 4d. Create Stock History for ALL Subscribers (v1.2.21 Fix) ⭐
+       │   ├─▶ CRITICAL: Create entry for EACH subscriber, not just first
+       │   ├─▶ Promise.allSettled([...]) - parallel with error isolation
+       │   ├─▶ For each subscriber with successful broadcast:
+       │   │   ├─▶ Create NotionClient with subscriber's credentials
+       │   │   ├─▶ Call archiveToHistory(subscriber.pageId)
+       │   │   └─▶ Write to subscriber's Stock History DB
+       │   ├─▶ Log success/failure per subscriber
+       │   └─▶ Continue even if some subscribers fail
+       │
+       └─▶ 4e. Rate Limit Delay
            └─▶ Wait ANALYSIS_DELAY_MS (default: 8000ms)
                Skip delay after last ticker
 
@@ -1259,6 +1269,121 @@ stock-intelligence/
 - `CHUNK_SIZE`: Stocks per chunk for chunked processing (default: 8, v1.2.0+)
 
 **See:** [ORCHESTRATOR.md](ORCHESTRATOR.md) for complete documentation
+
+---
+
+### Stock History Creation Pattern (v1.2.21) ⭐
+
+**CRITICAL ARCHITECTURAL NOTE:** When multiple users subscribe to the same ticker, Stock History must be created for ALL subscribers, not just the first one.
+
+#### ❌ WRONG: Single-Subscriber Pattern (v1.2.20 Bug)
+
+```typescript
+// BUG: Only creates history for first subscriber
+const firstSubscriber = item.subscribers[0];
+const notionClient = createNotionClient({
+  stockHistoryDbId: firstSubscriber.stockHistoryDbId,
+});
+await notionClient.archiveToHistory(firstSubscriber.pageId);
+// Result: Only first subscriber gets Stock History entry
+// Other subscribers get NOTHING
+```
+
+**Why This Failed:**
+- Ticker AAPL has 3 subscribers: [grenager, stephie, shalomormsby]
+- Analysis runs ONCE (correct) ✅
+- Broadcast to ALL 3 users (correct) ✅
+- Stock History created using `subscribers[0]` (WRONG) ❌
+- Only grenager's database got entries
+- stephie and shalomormsby databases remained empty
+
+#### ✅ CORRECT: All-Subscribers Pattern (v1.2.21 Fix)
+
+```typescript
+// Create Stock History for EACH subscriber in parallel
+const historyPromises = item.subscribers.map(async (subscriber, index) => {
+  // Skip if this subscriber's broadcast failed
+  const broadcastResult = broadcastResults[index];
+  if (broadcastResult.status !== 'fulfilled') {
+    return { email: subscriber.email, success: false, reason: 'broadcast_failed' };
+  }
+
+  try {
+    // CRITICAL: Use EACH subscriber's credentials and database
+    const notionClient = createNotionClient({
+      apiKey: subscriber.accessToken,
+      stockAnalysesDbId: subscriber.stockAnalysesDbId,
+      stockHistoryDbId: subscriber.stockHistoryDbId,  // ← Each user's DB
+      userId: subscriber.notionUserId,
+      timezone: subscriber.timezone,
+    });
+
+    // Archive to THIS subscriber's Stock History DB
+    const historyPageId = await notionClient.archiveToHistory(
+      subscriber.pageId,  // ← Each user's page
+      currentRegime
+    );
+
+    return { email: subscriber.email, success: true, historyPageId };
+  } catch (error) {
+    // Error isolation: one user's failure doesn't block others
+    return { email: subscriber.email, success: false, reason: error.message };
+  }
+});
+
+// Wait for all history creation attempts
+const historyResults = await Promise.allSettled(historyPromises);
+const successCount = historyResults.filter(r =>
+  r.status === 'fulfilled' && r.value.success
+).length;
+
+console.log(`Stock History: ${successCount}/${item.subscribers.length} created`);
+```
+
+**Why This Works:**
+- Each subscriber gets their OWN Stock History entry
+- Parallel execution with `Promise.allSettled` for performance
+- Error isolation: one user's failure doesn't block others
+- Per-subscriber logging for observability
+- No duplicates: exactly 1 entry per user per ticker per day
+
+#### Key Principles
+
+**1. Deduplication ≠ Single Creation**
+- **Analyze once** per ticker (deduplication) ✅
+- **Broadcast to ALL** subscribers ✅
+- **Create history for ALL** subscribers ✅
+
+**2. User Isolation**
+- Each user has their own Stock Analyses database
+- Each user has their own Stock History database
+- Use each user's credentials to write to THEIR database
+
+**3. Error Handling**
+- Use `Promise.allSettled` for parallel execution
+- One user's failure doesn't block others
+- Log success/failure per subscriber
+- Continue processing even if some fail
+
+**4. Testing Requirements**
+- MUST test with multiple users tracking same ticker
+- Single-user testing will NOT catch this bug
+- Verify ALL users receive entries, not just first
+- Check for duplicates (should be exactly 1 per user per day)
+
+#### Historical Context
+
+**v1.2.19 → v1.2.20:**
+- **Problem**: Created N duplicate Stock History entries (one per subscriber during broadcast)
+- **Fix**: Moved creation to after broadcasts (step 4d)
+- **Side Effect**: Only created for `subscribers[0]` ← **NEW BUG**
+
+**v1.2.20 → v1.2.21:**
+- **Problem**: Stock History only created for first subscriber
+- **Fix**: Create for ALL subscribers in parallel
+- **Result**: All users get entries, no duplicates ✅
+
+**Lesson Learned:** Preventing duplicates doesn't mean creating once. It means creating once PER USER.
 
 ---
 

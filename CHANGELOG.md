@@ -1,6 +1,6 @@
 # Changelog
 
-**Last Updated:** November 26, 2025
+**Last Updated:** December 2, 2025
 
 All notable changes to Sage Stocks will be documented in this file.
 
@@ -96,6 +96,96 @@ All development versions are documented below with full technical details.
 ---
 
 ## [Unreleased]
+
+### 🔴 Critical Bug Fix: Stock History Only Created for First Subscriber (v1.2.21)
+
+**Date:** December 2, 2025
+**Status:** ✅ Fixed and Deployed
+**Severity:** 🔴 Critical - Blocking 2/3 users
+**Files Changed:**
+- `lib/orchestration/orchestrator.ts` (Lines 332-380)
+
+**Issue:**
+Stock History entries stopped being created for 2 out of 3 users after November 29, 2025. Only the first subscriber of each ticker was receiving Stock History entries, while other subscribers tracking the same ticker got nothing.
+
+**Root Cause:**
+The v1.2.20 fix (commit `ff1742b`, November 26) successfully prevented duplicate Stock History entries by moving creation from the broadcast phase to after all broadcasts complete. However, the implementation only created Stock History for `item.subscribers[0]` (the first subscriber), not for all subscribers.
+
+**Affected Users:**
+- ✅ grenager@gmail.com: Receiving entries (was first subscriber for most tickers)
+- 🔴 stephie.ormsby@gmail.com: Last entry November 26 - **BLOCKED**
+- 🔴 shalomormsby@gmail.com: Last entry November 29 - **BLOCKED**
+
+**The Bug Flow:**
+```
+1. Orchestrator analyzes AAPL once for 3 users ✅
+2. Broadcasts results to all 3 users ✅
+3. Creates Stock History using subscribers[0] credentials ❌
+   → Only grenager's Stock History DB gets entry
+   → stephie and shalomormsby get nothing
+```
+
+**The Fix:**
+Changed Stock History creation from single-subscriber to all-subscribers pattern with parallel execution:
+
+**Before (v1.2.20):**
+```typescript
+// Create history for FIRST subscriber only
+const firstSubscriber = item.subscribers[0];
+const notionClient = createNotionClient({
+  stockHistoryDbId: firstSubscriber.stockHistoryDbId,
+});
+await notionClient.archiveToHistory(firstSubscriber.pageId);
+```
+
+**After (v1.2.21):**
+```typescript
+// Create history for ALL subscribers in parallel
+const historyPromises = item.subscribers.map(async (subscriber, index) => {
+  // Skip if broadcast failed for this subscriber
+  if (broadcastResults[index].status !== 'fulfilled') return;
+
+  const notionClient = createNotionClient({
+    apiKey: subscriber.accessToken,
+    stockHistoryDbId: subscriber.stockHistoryDbId,
+  });
+  return notionClient.archiveToHistory(subscriber.pageId);
+});
+const historyResults = await Promise.allSettled(historyPromises);
+```
+
+**Key Improvements:**
+- ✅ All subscribers get Stock History entries (not just first)
+- ✅ No duplicates (one entry per subscriber per ticker per day)
+- ✅ Parallel execution for better performance
+- ✅ Error isolation (one user's failure doesn't block others)
+- ✅ Per-subscriber logging for observability
+
+**Impact:**
+After next cron run (December 3, 2025 at 5:30 AM PT), all 3 users will receive Stock History entries. The 3-6 day gap will remain as historical record, but forward progress will resume.
+
+**Testing:**
+```bash
+# Verify all users receiving entries after fix
+npx ts-node scripts/test/check-all-stock-history-dbs.ts
+
+# Verify no duplicates
+# Each ticker should have exactly 1 entry per user per day
+```
+
+**Related Issues:**
+- v1.2.19 → v1.2.20: Fixed duplicate entries (N entries per ticker)
+- v1.2.20 → v1.2.21: Fixed single-subscriber issue (entries for all users)
+
+**Lessons Learned:**
+1. **Multi-user testing required**: Single-user testing missed this bug
+2. **Check all databases**: Verify feature works for ALL users, not just one
+3. **Deduplication vs distribution**: Preventing duplicates ≠ only creating once
+
+**Documentation:**
+See [docs/BUG_FIX_v1.2.21.md](docs/BUG_FIX_v1.2.21.md) for full investigation timeline and architectural notes.
+
+---
 
 ### 🐛 Critical Bug Fixes: Silent Failures & Database Duplicates (v1.2.20)
 
