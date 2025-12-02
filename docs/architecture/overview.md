@@ -1,9 +1,9 @@
 # Sage Stocks Architecture
 
-*Last updated: November 19, 2025*
+*Last updated: December 1, 2025*
 
 **Development Version:** v1.2.16 (Complete) - Stock Events Ingestion Pipeline
-**Latest Feature:** v1.2.16 (Complete) - FMP Event Calendar Integration (Earnings, Dividends, Splits)
+**Latest Feature:** v1.2.0 (Complete) - Chunked Processing Architecture (Timeout Prevention)
 **Template Version:** v0.1.0 (Beta) - Launching with Cohort 1
 **Production URL:** [https://sagestocks.vercel.app](https://sagestocks.vercel.app)
 **Status:** ✅ Live in Production - Fully Automated
@@ -42,6 +42,7 @@ Sage Stocks is a **serverless stock analysis platform** that delivers automated 
 - **6-dimension scoring system** - 5 weighted (Technical 28.5%, Fundamental 33%, Macro 19%, Risk 14.5%, Market Alignment 5%) + Sentiment (reference-only, 0% weight in composite)
 - **Market context awareness** - Regime detection (Risk-On, Risk-Off, Transition) with sector rotation tracking (v1.0.7)
 - **Stock events calendar** - Automated ingestion of earnings calls, dividends, and stock splits for Portfolio/Watchlist stocks (v1.2.16)
+- **Chunked processing architecture** - Redis-backed queue persistence for 15+ stock daily analyses without timeout (v1.2.0)
 - **LLM-generated analysis** - 7-section regime-aware analysis narratives (Google Gemini Flash 2.5, $0.013/analysis)
 - **Historical context tracking** - Delta tracking across previous analyses
 - **Template version management** - User-controlled upgrade system with data preservation (v1.1.6)
@@ -1255,8 +1256,271 @@ stock-intelligence/
 **Configuration:**
 - `ANALYSIS_DELAY_MS`: Delay between tickers (default: 8000ms)
 - `ORCHESTRATOR_DRY_RUN`: Test mode without API calls (default: false)
+- `CHUNK_SIZE`: Stocks per chunk for chunked processing (default: 8, v1.2.0+)
 
 **See:** [ORCHESTRATOR.md](ORCHESTRATOR.md) for complete documentation
+
+---
+
+### Chunked Processing Architecture (v1.2.0) ⭐
+
+**Problem:** Sequential processing of 15+ stocks exceeded Vercel's 800-second function timeout, causing 504 Gateway Timeout errors after ~11 stocks.
+
+**Root Cause:**
+- Execution time: 15 stocks × ~60s each + 14 delays × 8s = ~928 seconds (15.5 minutes)
+- Vercel timeout limit: 800 seconds (13.3 minutes)
+- Result: 4 stocks never reached the queue before timeout
+
+**Solution:** Chunked processing using Upstash Redis queue persistence to split work across multiple cron invocations.
+
+#### How It Works
+
+**Architecture:**
+```
+Cron Invocation 1 (5:30 AM PT):
+├─ Check Redis for existing queue → NOT FOUND
+├─ Collect all stocks from all users (e.g., 15 stocks)
+├─ Save queue to Redis: analysis_queue:YYYY-MM-DD
+├─ Process first chunk: stocks 1-8 (CHUNK_SIZE=8)
+│  └─ Execution: ~9 minutes (within 800s timeout ✅)
+├─ Update Redis: processedCount = 8
+└─ Return: { mode: 'first_run', chunk: 1/2, nextChunkAt: '5:45 AM PT' }
+
+Cron Invocation 2 (5:45 AM PT):
+├─ Check Redis for existing queue → FOUND
+├─ Load queue from Redis
+├─ Resume from processedCount: 8
+├─ Process second chunk: stocks 9-15
+│  └─ Execution: ~8 minutes (within 800s timeout ✅)
+├─ Update Redis: processedCount = 15
+├─ Delete queue (all chunks complete)
+└─ Return: { mode: 'resume', chunk: 2/2, isComplete: true }
+```
+
+#### Cron Schedules
+
+Two cron invocations hit the same endpoint with auto-resume logic:
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/scheduled-analyses", "schedule": "30 13 * * 1-5" },  // 5:30 AM PT
+    { "path": "/api/cron/scheduled-analyses", "schedule": "45 13 * * 1-5" }   // 5:45 AM PT
+  ]
+}
+```
+
+#### Redis Queue Structure
+
+**Queue Storage:**
+```typescript
+interface StoredQueue {
+  id: string;                        // "analysis_queue:2025-12-01"
+  items: QueueItem[];                // Full queue of stocks to process
+  processedCount: number;            // How many items processed so far
+  totalCount: number;                // Total items in queue
+  createdAt: string;                 // ISO timestamp
+  marketContext: MarketContext | null;  // Market context for this run
+  chunkSize: number;                 // Items per chunk (default: 8)
+  lastChunkAt?: string;              // ISO timestamp of last chunk
+}
+```
+
+**Redis Key:** `analysis_queue:YYYY-MM-DD`
+**TTL:** 24 hours (auto-cleanup)
+**Storage:** Upstash Redis (already used for rate limiting)
+
+#### Execution Flow
+
+```
+1. Cron Handler (/api/cron/scheduled-analyses)
+   ├─▶ Verify cron secret
+   ├─▶ Check NYSE market day
+   └─▶ loadQueueFromRedis()
+       │
+       ├─▶ Queue NOT found (First Run):
+       │   ├─ Fetch market context
+       │   ├─ Get all beta users
+       │   ├─ collectStockRequests(users) → Map<ticker, Subscriber[]>
+       │   ├─ buildPriorityQueue(tickerMap) → QueueItem[]
+       │   ├─ saveQueueToRedis(queue, marketContext, CHUNK_SIZE)
+       │   ├─ processQueue(queue, marketContext, startIndex=0, maxItems=8)
+       │   ├─ updateProcessedCount(queueId, 8)
+       │   └─ Return: { mode: 'first_run', chunk: 1, totalChunks: 2, ... }
+       │
+       └─▶ Queue FOUND (Resume):
+           ├─ Load queue from Redis
+           ├─ startIndex = queue.processedCount
+           ├─ remainingItems = queue.totalCount - startIndex
+           ├─ itemsToProcess = min(CHUNK_SIZE, remainingItems)
+           ├─ processQueue(queue.items, queue.marketContext, startIndex, itemsToProcess)
+           ├─ updateProcessedCount(queueId, startIndex + itemsToProcess)
+           ├─ if (all complete): deleteQueue(queueId)
+           └─ Return: { mode: 'resume', chunk: 2, isComplete: true, ... }
+
+2. processQueue() - Chunked Support
+   ├─▶ Parameters: queue, marketContext, startIndex=0, maxItems=∞
+   ├─▶ Calculate: endIndex = min(startIndex + maxItems, queue.length)
+   ├─▶ Loop: for (i = startIndex; i < endIndex; i++)
+   │   ├─ Set status to "Analyzing"
+   │   ├─ analyzeWithRetry(item, 3, marketContext)
+   │   ├─ validateAnalysisComplete(result)
+   │   ├─ broadcastToSubscribers(subscribers, result)
+   │   ├─ archiveToHistory(firstSubscriber, marketRegime)
+   │   └─ delay(ANALYSIS_DELAY_MS) if not last
+   └─▶ Return metrics with chunk info
+```
+
+#### Response Format
+
+**First Run (5:30 AM PT):**
+```json
+{
+  "success": true,
+  "marketDay": true,
+  "mode": "first_run",
+  "chunk": 1,
+  "totalChunks": 2,
+  "processedItems": 8,
+  "totalTickers": 15,
+  "analyzed": 8,
+  "failed": 0,
+  "broadcasts": { "total": 24, "successful": 24, "failed": 0 },
+  "durationSec": "537.0",
+  "isComplete": false,
+  "nextChunkAt": "5:45 AM PT (13:45 UTC)"
+}
+```
+
+**Resume Run (5:45 AM PT):**
+```json
+{
+  "success": true,
+  "marketDay": true,
+  "mode": "resume",
+  "chunk": 2,
+  "totalChunks": 2,
+  "processedItems": 15,
+  "totalTickers": 15,
+  "analyzed": 7,
+  "failed": 0,
+  "broadcasts": { "total": 21, "successful": 21, "failed": 0 },
+  "durationSec": "490.0",
+  "isComplete": true
+}
+```
+
+#### Key Implementation Files
+
+**New Files (v1.2.0):**
+- `lib/orchestration/queue-storage.ts` (360 lines)
+  - `saveQueueToRedis()` - Store queue with 24h TTL
+  - `loadQueueFromRedis()` - Retrieve queue for resume
+  - `updateProcessedCount()` - Track progress across invocations
+  - `deleteQueue()` - Cleanup when complete
+  - `getQueueStatus()` - Monitoring/debugging helper
+
+**Modified Files:**
+- `lib/orchestration/orchestrator.ts`
+  - Added `startIndex` and `maxItems` parameters to `processQueue()`
+  - Updated logging to show chunk progress
+  - Version bumped to v1.2.0
+
+- `api/cron/scheduled-analyses.ts`
+  - Complete rewrite with resume logic
+  - Auto-detects first run vs resume from Redis
+  - Enhanced response with chunk metadata
+
+#### Performance Improvements
+
+| Metric | Before (v1.1.0) | After (v1.2.0) | Improvement |
+|--------|-----------------|----------------|-------------|
+| **Max Stocks/Day** | 11 stocks | 15+ stocks | **+36%** |
+| **Timeout Risk** | 504 errors after 11 stocks | None (chunked) | **100% eliminated** |
+| **Execution Time** | 15 min (timeout) | 9 min + 8 min (17 min total) | Stable |
+| **Infrastructure Cost** | $0 | $0 | No change (uses existing Redis) |
+| **Scalability** | 11 stocks max | 50+ stocks (with 3+ chunks) | **5x scalability** |
+
+#### Configuration
+
+**Environment Variables:**
+```bash
+# Number of stocks to process per chunk (default: 8)
+# - 8 stocks: ~9 minutes per chunk (safe for 800s timeout)
+# - 10 stocks: ~11 minutes per chunk (approaches limit)
+# - 12+ stocks: Risk of timeout
+CHUNK_SIZE=8
+```
+
+**Scaling Example (20+ stocks):**
+Add third cron schedule in `vercel.json`:
+```json
+{
+  "crons": [
+    { "path": "/api/cron/scheduled-analyses", "schedule": "30 13 * * 1-5" },  // 5:30 AM
+    { "path": "/api/cron/scheduled-analyses", "schedule": "45 13 * * 1-5" },  // 5:45 AM
+    { "path": "/api/cron/scheduled-analyses", "schedule": "0 14 * * 1-5" }    // 6:00 AM
+  ]
+}
+```
+
+#### Benefits
+
+✅ **Eliminates 504 timeouts** - Each chunk stays well under 800s limit
+✅ **Zero new infrastructure costs** - Uses existing Upstash Redis
+✅ **Maintains multi-tenant security** - Same security model as v1.1.0
+✅ **Preserves deduplication benefits** - Still analyzes each ticker once
+✅ **Easy monitoring** - Same cron logs, enhanced with chunk metadata
+✅ **Auto-cleanup** - Redis TTL removes stale queues after 24 hours
+✅ **Graceful resume** - Picks up exactly where it left off
+✅ **Production-ready** - Fault isolation and error handling included
+
+#### Multi-Tenancy Support
+
+Chunked processing is fully compatible with Sage Stocks' multi-tenant architecture:
+
+- ✅ Queue stored globally but contains per-user subscriber lists
+- ✅ Each broadcast uses user-specific OAuth tokens and database IDs
+- ✅ Error isolation preserved (`Promise.allSettled` in broadcasting)
+- ✅ No cross-tenant data leakage
+- ✅ Same security guarantees as sequential processing
+
+**Queue Item Structure (Multi-Tenant Aware):**
+```typescript
+interface QueueItem {
+  ticker: string;                 // e.g., "AAPL"
+  priority: number;               // 1 (Pro) to 4 (Free)
+  subscribers: Subscriber[];      // All users needing this ticker
+  requestedAt: Date;
+}
+
+interface Subscriber {
+  userId: string;                 // Unique user ID
+  email: string;                  // User email
+  tier: string;                   // Pro/Analyst/Starter/Free
+  accessToken: string;            // User's OAuth token (encrypted)
+  stockAnalysesDbId: string;      // User's Stock Analyses database
+  stockHistoryDbId: string;       // User's Stock History database
+  // ... other user-specific fields
+}
+```
+
+During broadcasting, each subscriber gets their own Notion client:
+```typescript
+const notionClient = createNotionClient({
+  apiKey: subscriber.accessToken,           // User-specific token
+  stockAnalysesDbId: subscriber.stockAnalysesDbId,  // User's database
+  stockHistoryDbId: subscriber.stockHistoryDbId,    // User's database
+  userId: subscriber.notionUserId,
+  timezone: subscriber.timezone,
+});
+
+await notionClient.syncToNotion(analysisData);  // Writes to user's workspace only
+```
+
+This ensures complete data isolation between users while maintaining the efficiency gains of deduplication.
+
+---
 
 ### Bypass Code Flow
 
