@@ -33,6 +33,10 @@
       "schedule": "30 13 * * 1-5"
     },
     {
+      "path": "/api/cron/scheduled-analyses",
+      "schedule": "45 13 * * 1-5"
+    },
+    {
       "path": "/api/jobs/stock-events",
       "schedule": "0 12 * * 0"
     }

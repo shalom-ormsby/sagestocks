@@ -240,12 +240,21 @@ export function buildPriorityQueue(
  * 2. Validate completeness
  * 3. Broadcast to all subscribers (parallel with Promise.allSettled)
  * 4. Delay before next ticker
+ *
+ * Supports chunked processing:
+ * - startIndex: Start processing from this index (default: 0)
+ * - maxItems: Process at most this many items (default: all)
  */
 export async function processQueue(
   queue: QueueItem[],
-  marketContext: MarketContext | null = null
+  marketContext: MarketContext | null = null,
+  startIndex: number = 0,
+  maxItems: number = Number.MAX_SAFE_INTEGER
 ): Promise<OrchestratorMetrics> {
-  console.log(`[ORCHESTRATOR] Processing queue with ${queue.length} tickers...`);
+  const endIndex = Math.min(startIndex + maxItems, queue.length);
+  const chunkSize = endIndex - startIndex;
+
+  console.log(`[ORCHESTRATOR] Processing queue chunk: items ${startIndex + 1}-${endIndex} of ${queue.length} (${chunkSize} items)`);
   console.log(`[ORCHESTRATOR] Rate limit: ${ANALYSIS_DELAY_MS}ms delay between tickers`);
   console.log(`[ORCHESTRATOR] Dry run mode: ${DRY_RUN ? 'ENABLED' : 'DISABLED'}`);
 
@@ -263,9 +272,9 @@ export async function processQueue(
     apiCallsSaved: 0,
   };
 
-  for (let i = 0; i < queue.length; i++) {
+  for (let i = startIndex; i < endIndex; i++) {
     const item = queue[i];
-    const isLastItem = i === queue.length - 1;
+    const isLastItem = i === endIndex - 1;
 
     console.log(`\n[ORCHESTRATOR] [${i + 1}/${queue.length}] Processing ${item.ticker} (${item.subscribers.length} subscribers)...`);
 
@@ -360,8 +369,8 @@ export async function processQueue(
 
   metrics.durationMs = Date.now() - startTime;
 
-  console.log(`\n[ORCHESTRATOR] ✓ Queue processing complete`);
-  console.log(`[ORCHESTRATOR]   Total tickers: ${metrics.totalTickers}`);
+  console.log(`\n[ORCHESTRATOR] ✓ Queue chunk processing complete`);
+  console.log(`[ORCHESTRATOR]   Chunk: items ${startIndex + 1}-${endIndex} of ${metrics.totalTickers}`);
   console.log(`[ORCHESTRATOR]   Analyzed: ${metrics.analyzed}`);
   console.log(`[ORCHESTRATOR]   Failed: ${metrics.failed}`);
   console.log(`[ORCHESTRATOR]   Broadcasts: ${metrics.successfulBroadcasts}/${metrics.totalBroadcasts} succeeded`);
@@ -739,13 +748,17 @@ async function getOrFetchMarketContext(): Promise<MarketContext | null> {
  *
  * @param users Array of users to process
  * @param marketContextOverride Optional pre-fetched market context (cron can pass this)
+ * @param startIndex Start processing from this index (for chunked processing)
+ * @param maxItems Process at most this many items (for chunked processing)
  */
 export async function runOrchestrator(
   users: User[],
-  marketContextOverride?: MarketContext | null
+  marketContextOverride?: MarketContext | null,
+  startIndex: number = 0,
+  maxItems: number = Number.MAX_SAFE_INTEGER
 ): Promise<OrchestratorMetrics> {
   console.log('\n' + '='.repeat(60));
-  console.log('Stock Analysis Orchestrator v1.1.0 (with Market Context)');
+  console.log('Stock Analysis Orchestrator v1.2.0 (with Chunked Processing)');
   console.log('='.repeat(60));
 
   // Step 0: Use provided market context or fetch fresh
@@ -782,11 +795,11 @@ export async function runOrchestrator(
   // Step 2: Build priority queue
   const queue = buildPriorityQueue(tickerMap);
 
-  // Step 3: Process queue WITH market context
-  const metrics = await processQueue(queue, marketContext);
+  // Step 3: Process queue WITH market context AND chunking support
+  const metrics = await processQueue(queue, marketContext, startIndex, maxItems);
 
   console.log('\n' + '='.repeat(60));
-  console.log('Orchestrator Complete');
+  console.log('Orchestrator Chunk Complete');
   console.log('='.repeat(60));
 
   return metrics;
