@@ -748,6 +748,44 @@ export class NotionClient {
       const ticker = tickerProp.title[0]?.plain_text || 'Unknown';
       const analysisDate = new Date(dateProp.date?.start || Date.now());
 
+      // CRITICAL FIX: Check for duplicate entries on same date (prevents duplicates from orchestrator + manual API calls)
+      // Extract date-only string (YYYY-MM-DD) for comparison
+      const analysisDateOnly = analysisDate.toISOString().split('T')[0];
+
+      try {
+        const dataSourceId = await this.getDataSourceId(this.stockHistoryDbId);
+        const existingEntries = await this.client.dataSources.query({
+          data_source_id: dataSourceId,
+          filter: {
+            and: [
+              {
+                property: 'Ticker',
+                rich_text: {
+                  equals: ticker,
+                },
+              },
+              {
+                property: 'Analysis Date',
+                date: {
+                  equals: analysisDateOnly,
+                },
+              },
+            ],
+          },
+          page_size: 1,
+        });
+
+        if (existingEntries.results.length > 0) {
+          const existingPageId = existingEntries.results[0].id;
+          console.log(`⚠️  Stock History entry already exists for ${ticker} on ${analysisDateOnly}`);
+          console.log(`   Skipping duplicate creation. Existing page: ${existingPageId.substring(0, 8)}...`);
+          return existingPageId;
+        }
+      } catch (error) {
+        console.warn('⚠️  Failed to check for existing Stock History entries:', error);
+        // Continue with creation - better to have a duplicate than miss an entry
+      }
+
       // Format date in user's timezone with abbreviation (v1.0.3)
       const formattedDate = formatTimestampInTimezone(analysisDate, this.timezone);
 
@@ -766,7 +804,7 @@ export class NotionClient {
         };
         console.log(`ℹ️  Including Market Regime: ${marketRegime}`);
       }
-      // Note: Stock History doesn't use Content Status in v1.0.2
+      // Note: Stock History doesn't use Content Status (deprecated - field is redundant for time-series data)
 
       // Create Stock History page
       let historyPage;

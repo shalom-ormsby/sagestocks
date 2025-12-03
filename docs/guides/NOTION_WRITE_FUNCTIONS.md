@@ -66,8 +66,9 @@ console.log('History page:', result.historyPageId);
 **Features:**
 - ✅ Always creates new pages (never updates)
 - ✅ Sets Name property to "TICKER - MM/DD/YYYY HH:MM AM/PM"
-- ✅ Sets Content Status to "New"
 - ✅ Handles all property types correctly
+- ✅ Duplicate prevention: Skips creation if entry exists for same ticker + date
+- ⚠️ **Content Status deprecated** (v1.2.22): Field is redundant for time-series data. Stock History entries are historical by definition.
 
 #### 4. `buildProperties()` - Property Mapping
 **Location:** [lib/notion-client.ts:286-496](lib/notion-client.ts:286-496)

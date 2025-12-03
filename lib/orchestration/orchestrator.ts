@@ -332,17 +332,33 @@ export async function processQueue(
     // Step 3d: Create Stock History entry for EACH subscriber who had successful broadcast
     // This ensures all users tracking the same ticker get their own history entry
     if (successfulCount > 0) {
-      console.log(`[ORCHESTRATOR]   → Creating Stock History for ${item.subscribers.length} subscribers...`);
+      // CRITICAL FIX: Deduplicate subscribers by userId to prevent duplicate Stock History entries
+      // If a user has multiple Stock Analyses pages for the same ticker (both set to "Daily"),
+      // they would appear multiple times in item.subscribers, causing duplicate history entries.
+      // We want ONE Stock History entry per USER per TICKER per DAY, not one per page.
+      const uniqueSubscribers = new Map<string, Subscriber>();
 
-      // Create history entry for each subscriber in parallel
-      const historyPromises = item.subscribers.map(async (subscriber, index) => {
-        // Check if this subscriber's broadcast was successful
+      item.subscribers.forEach((subscriber, index) => {
+        // Only include subscribers with successful broadcasts
         const broadcastResult = broadcastResults[index];
-        if (broadcastResult.status !== 'fulfilled') {
-          console.log(`[ORCHESTRATOR]      ⚠️  Skipping history for ${subscriber.email} (broadcast failed)`);
-          return { email: subscriber.email, success: false, reason: 'broadcast_failed' };
+        if (broadcastResult.status === 'fulfilled') {
+          // Use userId as key to deduplicate (first occurrence wins)
+          if (!uniqueSubscribers.has(subscriber.userId)) {
+            uniqueSubscribers.set(subscriber.userId, subscriber);
+          }
         }
+      });
 
+      const uniqueCount = uniqueSubscribers.size;
+      const skippedDuplicates = item.subscribers.filter((_, i) => broadcastResults[i].status === 'fulfilled').length - uniqueCount;
+
+      console.log(`[ORCHESTRATOR]   → Creating Stock History for ${uniqueCount} unique users...`);
+      if (skippedDuplicates > 0) {
+        console.log(`[ORCHESTRATOR]      ℹ️  Skipped ${skippedDuplicates} duplicate entries (same user, multiple pages)`);
+      }
+
+      // Create history entry for each unique subscriber in parallel
+      const historyPromises = Array.from(uniqueSubscribers.values()).map(async (subscriber) => {
         try {
           const notionClient = createNotionClient({
             apiKey: subscriber.accessToken,
@@ -376,7 +392,7 @@ export async function processQueue(
       const historyResults = await Promise.allSettled(historyPromises);
       const historySuccessCount = historyResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
 
-      console.log(`[ORCHESTRATOR]   → Stock History: ${historySuccessCount}/${item.subscribers.length} created successfully`);
+      console.log(`[ORCHESTRATOR]   → Stock History: ${historySuccessCount}/${uniqueCount} unique users created successfully`);
     }
 
     // Step 3e: Delay before next ticker (except last)
@@ -420,6 +436,8 @@ async function analyzeWithRetry(
         notionUserId: firstSubscriber.notionUserId,
         timezone: firstSubscriber.timezone,
         marketContext, // Pass market context to stock analysis
+        stockAnalysesDbId: firstSubscriber.stockAnalysesDbId, // v1.0.9: Enable historical context
+        stockHistoryDbId: firstSubscriber.stockHistoryDbId, // v1.0.9: Enable historical context
       });
 
       // If analysis succeeded or failed with non-retryable error, return

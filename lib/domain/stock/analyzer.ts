@@ -5,6 +5,7 @@
  * Contains the core analysis workflow without HTTP/auth concerns.
  *
  * v1.0.5 - Orchestrator Support
+ * v1.0.9 - Historical Context Integration (fixes delta-first prompt for cron path)
  */
 
 import { createFMPClient } from '../../integrations/fmp/client';
@@ -14,6 +15,8 @@ import { validateStockData } from '../../core/validators';
 import { AnalysisContext } from '../../integrations/llm/types';
 import { LLMFactory } from '../../integrations/llm/factory';
 import { MarketContext } from '../market/index';
+import { createNotionClient } from '../../integrations/notion/client';
+import { calculateDeltas } from '../analysis/deltas';
 
 export interface AnalysisInput {
   ticker: string;
@@ -21,6 +24,8 @@ export interface AnalysisInput {
   notionUserId: string;
   timezone: string;
   marketContext?: MarketContext | null; // Optional market context for regime-aware analysis
+  stockAnalysesDbId?: string; // Optional - needed for Notion client initialization
+  stockHistoryDbId?: string; // Optional - enables historical context querying
 }
 
 export interface AnalysisResult {
@@ -216,66 +221,145 @@ export async function analyzeStockCore(
       stockSector
     );
 
-    // Generate LLM analysis
-    // Note: We don't query historical analyses here - that's the broadcaster's job
-    // when writing to Notion. For now, generate analysis without historical context.
+    // Query historical analyses for delta-first prompt (v1.0.9)
+    // This enables delta-first analysis for BOTH API and orchestrator code paths
+    let historicalAnalyses: any[] = [];
+    let previousAnalysis: any = null;
+    let deltas: any = null;
+
+    if (input.stockHistoryDbId && input.stockAnalysesDbId) {
+      try {
+        console.log(`[ANALYZER] Querying historical analyses for ${tickerUpper}...`);
+
+        const notionClient = createNotionClient({
+          apiKey: input.userAccessToken,
+          stockAnalysesDbId: input.stockAnalysesDbId,
+          stockHistoryDbId: input.stockHistoryDbId,
+          userId: input.notionUserId,
+          timezone: input.timezone,
+        });
+
+        // Query 90 days of history
+        historicalAnalyses = await notionClient.queryHistoricalAnalyses(tickerUpper, 90);
+
+        if (historicalAnalyses.length > 0) {
+          previousAnalysis = historicalAnalyses[0];
+
+          // Calculate deltas for delta-first prompt
+          const currentMetrics = {
+            compositeScore: scores.composite,
+            recommendation: scores.recommendation,
+            technicalScore: scores.technical,
+            fundamentalScore: scores.fundamental,
+            macroScore: scores.macro,
+            riskScore: scores.risk,
+            sentimentScore: scores.sentiment,
+            marketAlignment: scores.marketAlignment || 3.0,
+            price: fmpData.quote.price,
+            volume: fmpData.quote.volume,
+          };
+
+          deltas = calculateDeltas(
+            currentMetrics,
+            previousAnalysis,
+            input.marketContext, // Current market context
+            previousAnalysis.marketRegime // Previous regime for transition detection
+          );
+
+          console.log(`[ANALYZER] ✓ Found ${historicalAnalyses.length} historical analyses (90 days)`);
+          console.log(`[ANALYZER]   Previous: ${previousAnalysis.compositeScore}/5.0 (${previousAnalysis.date})`);
+          console.log(`[ANALYZER]   Score Change: ${deltas.trendEmoji} ${deltas.scoreChange > 0 ? '+' : ''}${deltas.scoreChange.toFixed(2)} (${deltas.significance}, ${deltas.trendDirection})`);
+          if (deltas.priceDeltas) {
+            console.log(`[ANALYZER]   Price Change: ${deltas.priceDeltas.priceChangePercent > 0 ? '+' : ''}${deltas.priceDeltas.priceChangePercent.toFixed(2)}% over ${deltas.daysElapsed} days`);
+          }
+          if (deltas.regimeTransition?.occurred) {
+            console.log(`[ANALYZER]   🔥 Regime Transition: ${deltas.regimeTransition.from} → ${deltas.regimeTransition.to}`);
+          }
+        } else {
+          console.log(`[ANALYZER] ℹ️  No historical analyses found (first analysis for ${tickerUpper})`);
+        }
+      } catch (error) {
+        console.warn(`[ANALYZER] ⚠️  Failed to query historical analyses for ${tickerUpper}:`, error);
+        // Continue without historical context (graceful degradation)
+      }
+    } else {
+      console.log(`[ANALYZER] ℹ️  Stock History DB not configured - skipping historical context`);
+    }
+
+    // Build current metrics object (used for both LLM context and delta calculation)
+    const currentMetrics = {
+      // Scores
+      compositeScore: scores.composite,
+      technicalScore: scores.technical,
+      fundamentalScore: scores.fundamental,
+      macroScore: scores.macro,
+      riskScore: scores.risk,
+      sentimentScore: scores.sentiment,
+      marketAlignment: scores.marketAlignment, // NEW: Market alignment score
+      sectorScore: 0,
+      recommendation: scores.recommendation,
+      pattern: 'Unknown',
+      confidence: qualityReport.dataCompleteness * 5,
+      dataQualityGrade: qualityReport.grade,
+
+      // Company Profile
+      companyName: fundamental.company_name,
+      sector: fmpData.profile.sector,
+      industry: fmpData.profile.industry,
+
+      // Technical Data (ALL from API)
+      currentPrice: technical.current_price,
+      ma50: technical.ma_50,
+      ma200: technical.ma_200,
+      rsi: technical.rsi,
+      volume: technical.volume,
+      avgVolume: technical.avg_volume_20d,
+      volatility30d: technical.volatility_30d,
+      priceChange1d: technical.price_change_1d,
+      priceChange5d: technical.price_change_5d,
+      priceChange1m: technical.price_change_1m,
+      week52High: technical.week_52_high,
+      week52Low: technical.week_52_low,
+
+      // Fundamental Data (ALL from API)
+      marketCap: fundamental.market_cap,
+      peRatio: fundamental.pe_ratio,
+      eps: fundamental.eps,
+      revenueTTM: fundamental.revenue_ttm,
+      debtToEquity: fundamental.debt_to_equity,
+      beta: fundamental.beta,
+
+      // Macro Data (ALL from API)
+      fedFundsRate: macro.fed_funds_rate,
+      unemployment: macro.unemployment,
+      consumerSentiment: macro.consumer_sentiment,
+      yieldCurveSpread: macro.yield_curve_spread,
+      vix: macro.vix,
+      gdp: macro.gdp,
+    };
+
+    // Generate LLM analysis WITH historical context (v1.0.9)
     const analysisContext: AnalysisContext = {
       ticker: tickerUpper,
       currentDate: new Date().toISOString().split('T')[0], // e.g., "2025-11-16"
-      marketContext: input.marketContext, // NEW: Pass market context to LLM
-      currentMetrics: {
-        // Scores
-        compositeScore: scores.composite,
-        technicalScore: scores.technical,
-        fundamentalScore: scores.fundamental,
-        macroScore: scores.macro,
-        riskScore: scores.risk,
-        sentimentScore: scores.sentiment,
-        marketAlignment: scores.marketAlignment, // NEW: Market alignment score
-        sectorScore: 0,
-        recommendation: scores.recommendation,
-        pattern: 'Unknown',
-        confidence: qualityReport.dataCompleteness * 5,
-        dataQualityGrade: qualityReport.grade,
-
-        // Company Profile
-        companyName: fundamental.company_name,
-        sector: fmpData.profile.sector,
-        industry: fmpData.profile.industry,
-
-        // Technical Data (ALL from API)
-        currentPrice: technical.current_price,
-        ma50: technical.ma_50,
-        ma200: technical.ma_200,
-        rsi: technical.rsi,
-        volume: technical.volume,
-        avgVolume: technical.avg_volume_20d,
-        volatility30d: technical.volatility_30d,
-        priceChange1d: technical.price_change_1d,
-        priceChange5d: technical.price_change_5d,
-        priceChange1m: technical.price_change_1m,
-        week52High: technical.week_52_high,
-        week52Low: technical.week_52_low,
-
-        // Fundamental Data (ALL from API)
-        marketCap: fundamental.market_cap,
-        peRatio: fundamental.pe_ratio,
-        eps: fundamental.eps,
-        revenueTTM: fundamental.revenue_ttm,
-        debtToEquity: fundamental.debt_to_equity,
-        beta: fundamental.beta,
-
-        // Macro Data (ALL from API)
-        fedFundsRate: macro.fed_funds_rate,
-        unemployment: macro.unemployment,
-        consumerSentiment: macro.consumer_sentiment,
-        yieldCurveSpread: macro.yield_curve_spread,
-        vix: macro.vix,
-        gdp: macro.gdp,
-      },
-      previousAnalysis: undefined, // Broadcaster will handle historical context
-      historicalAnalyses: [],
-      deltas: undefined,
+      marketContext: input.marketContext, // Pass market context to LLM
+      currentMetrics,
+      previousAnalysis: previousAnalysis ? {
+        date: previousAnalysis.date,
+        compositeScore: previousAnalysis.compositeScore,
+        recommendation: previousAnalysis.recommendation,
+        metrics: {
+          technicalScore: previousAnalysis.technicalScore,
+          fundamentalScore: previousAnalysis.fundamentalScore,
+          macroScore: previousAnalysis.macroScore,
+        },
+      } : undefined,
+      historicalAnalyses: historicalAnalyses.map(h => ({
+        date: h.date,
+        compositeScore: h.compositeScore,
+        recommendation: h.recommendation,
+      })),
+      deltas,
     };
 
     const llmProvider = LLMFactory.getProviderFromEnv();

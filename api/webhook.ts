@@ -3,21 +3,25 @@
  *
  * Receives webhook events from Notion database automations.
  *
- * Handles two types of events:
- * 1. New analysis trigger: Extracts ticker and triggers analysis
- * 2. Archive trigger: Moves completed analysis to Stock History
+ * Current functionality:
+ * 1. New analysis trigger: Extracts ticker and triggers analysis (DEPRECATED - marked "Will Not Do")
+ *
+ * Deprecated functionality (removed in v1.2.22):
+ * 2. Archive trigger: Moved completed analysis to Stock History
+ *    - Stock History is now created automatically in /api/analyze endpoint
+ *    - No webhook trigger needed
+ *    - Returns HTTP 410 Gone if called
  *
  * Setup in Notion:
- * - For new analysis: Create automation → Call webhook with ticker
- * - For archiving: "Send to History" button → Call webhook with page ID + action=archive
+ * - Remove any "Send to History" automations that call this webhook
  * - Webhook URL: https://your-app.vercel.app/api/webhook
  *
+ * v1.2.22 - Removed archive webhook (duplicate prevention)
  * v1.0 - Vercel Serverless + TypeScript
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { createNotionClient } from '../lib/integrations/notion/client';
 import { requireAuth } from '../lib/core/auth';
 import { createTimer, info, error as logError } from '../lib/core/logger';
 import { formatErrorResponse } from '../lib/core/utils';
@@ -175,88 +179,18 @@ export default async function handler(
     console.log('Webhook type:', payload.type);
     console.log('Webhook action:', payload.action);
 
-    // Handle archive request (Send to History button)
+    // DEPRECATED: Archive webhook removed in v1.2.22
+    // Stock History is now created directly in the analysis pipeline (/api/analyze)
+    // See: docs/architecture/overview.md for current data flow
     if (payload.action === 'archive') {
-      console.log('📦 Archive request received');
-
-      const pageId = payload.pageId || payload.page?.id;
-      if (!pageId) {
-        console.log('❌ No page ID provided for archiving');
-        res.status(400).json({
-          success: false,
-          error: 'Missing page ID',
-          details: 'Archive action requires pageId in payload',
-        });
-        return;
-      }
-
-      console.log(`Archiving page: ${pageId}`);
-
-      // Initialize Notion client
-      const notionApiKey = process.env.NOTION_API_KEY;
-      const stockAnalysesDbId = process.env.STOCK_ANALYSES_DB_ID;
-      const stockHistoryDbId = process.env.STOCK_HISTORY_DB_ID;
-
-      if (!notionApiKey || !stockAnalysesDbId || !stockHistoryDbId) {
-        console.log('❌ Missing required environment variables');
-        res.status(500).json({
-          success: false,
-          error: 'Server configuration error',
-          details: 'Missing Notion API credentials',
-        });
-        return;
-      }
-
-      const notionClient = createNotionClient({
-        apiKey: notionApiKey,
-        stockAnalysesDbId,
-        stockHistoryDbId,
+      console.log('⚠️  Deprecated archive webhook called');
+      res.status(410).json({
+        success: false,
+        error: 'Archive webhook deprecated',
+        details: 'Stock History is now created automatically in /api/analyze. Remove "Send to History" automation from Notion.',
+        archiveTriggered: false,
       });
-
-      try {
-        const historyPageId = await notionClient.archiveToHistory(pageId);
-
-        if (historyPageId) {
-          const duration = timer.end(true);
-
-          info('Webhook archive successful', {
-            pageId,
-            historyPageId,
-            duration,
-          });
-
-          console.log(`✅ Successfully archived to history: ${historyPageId}`);
-          res.status(200).json({
-            success: true,
-            archiveTriggered: true,
-            historyPageId,
-            message: 'Analysis successfully archived to Stock History',
-          });
-          return;
-        } else {
-          console.log('❌ Archive operation returned null');
-          res.status(500).json({
-            success: false,
-            archiveTriggered: false,
-            error: 'Archive failed',
-            details: 'archiveToHistory() returned null',
-          });
-          return;
-        }
-      } catch (archiveError) {
-        const duration = timer.endWithError(archiveError as Error);
-
-        logError('Webhook archive failed', { pageId, duration }, archiveError as Error);
-
-        const errorResponse = formatErrorResponse(archiveError);
-        const statusCode = getStatusCode(archiveError);
-
-        res.status(statusCode).json({
-          ...errorResponse,
-          archiveTriggered: false,
-        });
-        return;
-      }
+      return;
     }
 
     // Handle new analysis trigger (original behavior)
