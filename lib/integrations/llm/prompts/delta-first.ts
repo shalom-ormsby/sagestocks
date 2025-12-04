@@ -123,6 +123,76 @@ export function buildDeltaFirstPrompt(context: AnalysisContext): string {
   }
 
   // ========================================
+  // SECTION 1.5: UPCOMING EVENTS (v1.2.17: Event-aware analysis)
+  // ========================================
+  if (context.upcomingEvents && context.upcomingEvents.length > 0) {
+    prompt += `## 📅 Upcoming Events (Next 30 Days)\n\n`;
+    prompt += `**CRITICAL:** ${ticker} has upcoming catalysts that MUST be factored into your recommendation.\n\n`;
+
+    for (const event of context.upcomingEvents) {
+      // Calculate days until event
+      const daysUntil = Math.round(
+        (new Date(event.eventDate).getTime() - new Date(context.currentDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      // Urgency emoji based on proximity
+      const urgencyEmoji = daysUntil <= 7 ? '🔥' : daysUntil <= 14 ? '⚠️' : '📅';
+
+      prompt += `- ${urgencyEmoji} **${event.eventType}**: ${event.eventDate} (in ${daysUntil} day${daysUntil === 1 ? '' : 's'})\n`;
+
+      // Add event-specific details
+      if (event.description) {
+        prompt += `  ${event.description}\n`;
+      }
+      if (event.epsEstimate !== undefined && event.fiscalQuarter) {
+        prompt += `  Expected EPS: $${event.epsEstimate.toFixed(2)} (${event.fiscalQuarter} ${event.fiscalYear})\n`;
+      }
+      if (event.dividendAmount !== undefined) {
+        prompt += `  Dividend: $${event.dividendAmount.toFixed(2)} per share\n`;
+      }
+    }
+
+    prompt += `\n**Event Awareness Guidelines:**\n`;
+
+    // Check for imminent high-impact events (earnings within 7 days)
+    const imminentEarnings = context.upcomingEvents.filter(e => {
+      const daysUntil = Math.round(
+        (new Date(e.eventDate).getTime() - new Date(context.currentDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return e.eventType === 'Earnings Call' && daysUntil <= 7;
+    });
+
+    const nearTermDividends = context.upcomingEvents.filter(e => {
+      const daysUntil = Math.round(
+        (new Date(e.eventDate).getTime() - new Date(context.currentDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return e.eventType === 'Dividend' && daysUntil <= 14;
+    });
+
+    const distantCatalysts = context.upcomingEvents.filter(e => {
+      const daysUntil = Math.round(
+        (new Date(e.eventDate).getTime() - new Date(context.currentDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return daysUntil > 14;
+    });
+
+    if (imminentEarnings.length > 0) {
+      prompt += `- 🔥 **EARNINGS WITHIN 7 DAYS:** Note elevated volatility risk. Consider waiting for earnings before entering/exiting.\n`;
+      prompt += `- Highlight this prominently in your Risk Assessment section.\n`;
+    }
+
+    if (nearTermDividends.length > 0) {
+      prompt += `- 💰 **DIVIDEND APPROACHING:** Mention this for income-focused investors. Ex-date and payment date matter for entry timing.\n`;
+    }
+
+    if (distantCatalysts.length > 0) {
+      prompt += `- 📅 **DISTANT CATALYST:** Assess whether to wait for the event or act now based on current technical/fundamental signals.\n`;
+    }
+
+    prompt += `- **INTEGRATE INTO RECOMMENDATION:** Don't just list events—explain how they change the risk/reward profile.\n\n`;
+  }
+
+  // ========================================
   // SECTION 2: WHAT CHANGED SINCE LAST ANALYSIS
   // ========================================
   if (previousAnalysis && deltas) {

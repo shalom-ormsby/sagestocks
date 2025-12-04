@@ -637,6 +637,17 @@ async function writeEventsToNotionDatabase(
 
       metrics.notionApiCalls++;
 
+      // Look up Stock Analyses page for this ticker (v1.2.17: Event-aware analysis)
+      const stockAnalysisPageId = await findStockAnalysisPage(
+        notion,
+        user.stockAnalysesDbId!,
+        event.ticker
+      );
+
+      if (stockAnalysisPageId) {
+        metrics.notionApiCalls++; // Count the lookup query
+      }
+
       const properties: any = {
         'Event Name': {
           title: [
@@ -722,6 +733,13 @@ async function writeEventsToNotionDatabase(
         properties['Fiscal Year'] = { number: event.fiscalYear };
       }
 
+      // Link to Stock Analyses page (v1.2.17: Event-aware analysis)
+      if (stockAnalysisPageId) {
+        properties['Stock'] = {
+          relation: [{ id: stockAnalysisPageId }],
+        };
+      }
+
       // Upsert: Update if exists, create if new
       if (existingPage) {
         await notion.pages.update({
@@ -802,5 +820,39 @@ async function findExistingEvent(
   } catch (err) {
     warn('Failed to query existing event', { ticker, eventType, eventDate, error: err });
     return undefined; // Assume doesn't exist, will create duplicate (handled by Notion)
+  }
+}
+
+/**
+ * Find Stock Analyses page by ticker
+ * Returns page ID if found, undefined otherwise (v1.2.17: Event-aware analysis)
+ */
+async function findStockAnalysisPage(
+  notion: Client,
+  stockAnalysesDbId: string,
+  ticker: string
+): Promise<string | undefined> {
+  try {
+    // Get data source ID for API v2025-09-03
+    const dataSourceId = await getDataSourceId(notion, stockAnalysesDbId);
+
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      filter: {
+        property: 'Ticker',
+        title: {
+          equals: ticker,
+        },
+      },
+    });
+
+    if (response.results.length > 0) {
+      return response.results[0].id;
+    }
+
+    return undefined;
+  } catch (err) {
+    warn('Failed to find Stock Analyses page', { ticker, error: err });
+    return undefined; // Graceful degradation - event will be created without Stock relation
   }
 }

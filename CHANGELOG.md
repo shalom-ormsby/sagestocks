@@ -1,6 +1,6 @@
 # Changelog
 
-**Last Updated:** December 2, 2025
+**Last Updated:** December 3, 2025
 
 All notable changes to Sage Stocks will be documented in this file.
 
@@ -96,6 +96,88 @@ All development versions are documented below with full technical details.
 ---
 
 ## [Unreleased]
+
+### ✨ Feature: Event-Aware Stock Analysis (v1.2.17)
+
+**Date:** December 3, 2025
+**Type:** Feature - Event Integration
+**Status:** ✅ Complete
+
+**Summary:**
+Stock analyses are now event-aware, integrating upcoming events (earnings, dividends, splits) directly into AI-generated recommendations. Investors are alerted to imminent catalysts that could move their portfolio stocks, enabling context-aware decision-making.
+
+**User Value:**
+Investors need to know **before** they analyze a stock if major events are approaching. A stock with earnings in 3 days requires different positioning than one with no events for months. Event awareness transforms analyses from static snapshots to dynamic, context-rich decision support.
+
+**Implementation:**
+
+**Phase 1: Stock Relation in Events Ingestion**
+- Modified `lib/domain/stock/events-ingestion.ts`
+- Added `findStockAnalysisPage()` helper function to look up Stock Analyses pages by ticker
+- FMP ingestion now populates the `Stock` relation property when creating events
+- Enables filtered queries: "Show me events for THIS stock analysis page"
+- Graceful degradation: If Stock Analyses page not found, event created without relation
+
+**Phase 2: AI Prompt Integration**
+- Modified `api/analyze/index.ts`
+- Added `queryUpcomingEvents()` function to fetch next 30 days of events filtered by Stock relation
+- Events queried in Step 4.5 of analysis workflow (after historical analyses, before AI generation)
+- Added `upcomingEvents` to `AnalysisContext` interface (`lib/integrations/llm/types.ts`)
+- Created `StockEvent` type with event-specific fields (EPS estimate, dividend amount, fiscal quarter, etc.)
+
+**Phase 3: Event-Aware Prompt Engineering**
+- Modified `lib/integrations/llm/prompts/delta-first.ts`
+- Added Section 1.5: "Upcoming Events (Next 30 Days)" after market context
+- Urgency indicators: 🔥 (≤7 days), ⚠️ (8-14 days), 📅 (>14 days)
+- Event-specific details: EPS estimates, dividend amounts, fiscal quarters
+- Contextual guidelines for AI:
+  - **Earnings within 7 days:** Note elevated volatility risk, consider waiting
+  - **Dividend approaching:** Mention for income investors, highlight ex-date timing
+  - **Distant catalysts:** Assess whether to wait or act now based on technicals
+- Integrated into recommendation: Events change risk/reward profile, not just listed
+
+**Architecture Decisions:**
+
+**❌ Rejected Approach: Linked Database Views**
+- Original brief suggested adding linked database views to Stock Analysis "pages"
+- **Problem:** Stock Analysis "pages" are database rows, not editable pages with content
+- **Solution:** Inject events into AI narrative instead (better UX, impossible to miss)
+
+**✅ Chosen Approach: AI Narrative Integration**
+- Events appear in AI-generated summary that users already read
+- No manual Notion template modifications needed
+- No client-side configuration required
+- Cleaner architecture, best UX
+
+**Files Changed:**
+1. `lib/domain/stock/events-ingestion.ts` - FMP ingestion populates Stock relation
+2. `lib/integrations/llm/types.ts` - Added `StockEvent` interface and `upcomingEvents` to `AnalysisContext`
+3. `api/analyze/index.ts` - Query upcoming events and add to analysis context
+4. `lib/integrations/llm/prompts/delta-first.ts` - Event-aware prompt section
+
+**Multi-Tenant Compatibility:**
+- ✅ Uses per-user `stockAnalysesDbId` (Phase 1 lookup)
+- ✅ Uses per-user `stockEventsDbId` and `accessToken` (Phase 2 query)
+- ✅ Zero cross-contamination risk
+- ✅ Matches existing patterns from v1.0.0, v1.2.16, v1.2.20
+
+**Testing:**
+- ✅ TypeScript compilation: `npx tsc --noEmit` passes
+- ✅ Graceful degradation: Works if Stock Events DB not configured
+- ✅ Graceful degradation: Works if Stock Analysis page not found
+- ✅ Graceful degradation: Works if no upcoming events
+
+**Tradeoffs:**
+- **No backfill of existing events:** Stock relation only applied to new events going forward (old events still queryable by Ticker text)
+- **No separate database property:** Events only in AI narrative, not as a dedicated "Upcoming Events" field in Stock Analyses
+- **30-day window:** Focused on near-term catalysts only (not 90+ days)
+
+**Future Enhancements (Not Implemented):**
+- ⏭️ Notification system for high-impact events (covered in Calendar task)
+- ⏭️ Backfill Stock relation for existing events (optional, not blocking)
+- ⏭️ Event impact tracking (did the stock move as expected after earnings?)
+
+---
 
 ### 🔴 Critical Bug Fix: Stock History Only Created for First Subscriber (v1.2.21)
 

@@ -19,6 +19,7 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { Client } from '@notionhq/client';
 import { createFMPClient } from '../../lib/integrations/fmp/client';
 import { createFREDClient } from '../../lib/integrations/fred/client';
 import { createStockScorer } from '../../lib/domain/analysis/scoring';
@@ -30,7 +31,7 @@ import { formatErrorResponse, formatErrorForNotion, withRetry } from '../../lib/
 import { getErrorCode, getStatusCode, RateLimitError } from '../../lib/core/errors';
 import { RateLimiter } from '../../lib/core/rate-limiter';
 import { LLMFactory } from '../../lib/integrations/llm/factory';
-import { AnalysisContext } from '../../lib/integrations/llm/types';
+import { AnalysisContext, StockEvent } from '../../lib/integrations/llm/types';
 import { validateTimezone, getTimezoneFromEnv, getSecondsUntilMidnight } from '../../lib/shared/timezone';
 import { assertDatabasesValid } from '../../lib/shared/database-validator';
 import { reportAPIError } from '../../lib/shared/bug-reporter';
@@ -99,6 +100,120 @@ interface AnalyzeResponse {
   };
   error?: string;
   details?: string;
+}
+
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Data source cache for Notion API v2025-09-03
+ */
+const dataSourceCache = new Map<string, string>();
+
+/**
+ * Get data source ID from database ID (cached)
+ */
+async function getDataSourceId(notion: Client, databaseId: string): Promise<string> {
+  if (dataSourceCache.has(databaseId)) {
+    return dataSourceCache.get(databaseId)!;
+  }
+
+  const db = await notion.databases.retrieve({ database_id: databaseId });
+  const dataSourceId = (db as any).data_sources?.[0]?.id;
+
+  if (!dataSourceId) {
+    throw new Error(`No data source found for database ${databaseId}`);
+  }
+
+  dataSourceCache.set(databaseId, dataSourceId);
+  return dataSourceId;
+}
+
+/**
+ * Query upcoming stock events for event-aware analysis (v1.2.17)
+ *
+ * @param accessToken User's OAuth access token
+ * @param stockEventsDbId Stock Events database ID
+ * @param stockAnalysisPageId Stock Analyses page ID (for relation filter)
+ * @param daysAhead Number of days to look ahead (default 30)
+ * @returns Array of upcoming events, or empty array if none found
+ */
+async function queryUpcomingEvents(
+  accessToken: string,
+  stockEventsDbId: string | undefined,
+  stockAnalysisPageId: string,
+  daysAhead: number = 30
+): Promise<StockEvent[]> {
+  // Graceful degradation if Stock Events DB not configured
+  if (!stockEventsDbId) {
+    console.log('ℹ️  Stock Events DB not configured - skipping event query');
+    return [];
+  }
+
+  try {
+    const notion = new Client({ auth: accessToken, notionVersion: '2025-09-03' });
+    const dataSourceId = await getDataSourceId(notion, stockEventsDbId);
+
+    // Calculate date range
+    const today = new Date();
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + daysAhead);
+
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      filter: {
+        and: [
+          {
+            property: 'Stock',
+            relation: {
+              contains: stockAnalysisPageId,
+            },
+          },
+          {
+            property: 'Event Date',
+            date: {
+              on_or_after: today.toISOString().split('T')[0],
+            },
+          },
+          {
+            property: 'Event Date',
+            date: {
+              on_or_before: endDate.toISOString().split('T')[0],
+            },
+          },
+        ],
+      },
+      sorts: [
+        {
+          property: 'Event Date',
+          direction: 'ascending',
+        },
+      ],
+    });
+
+    // Transform Notion results to StockEvent[]
+    const events: StockEvent[] = response.results.map((page: any) => {
+      const props = page.properties;
+      return {
+        eventType: props['Event Type']?.select?.name || 'Unknown',
+        eventDate: props['Event Date']?.date?.start || '',
+        description: props.Description?.rich_text?.[0]?.plain_text || '',
+        confidence: props.Confidence?.select?.name || 'Medium',
+        impactPotential: props['Impact Potential']?.select?.name,
+        epsEstimate: props['EPS Estimate']?.number,
+        dividendAmount: props['Dividend Amount']?.number,
+        fiscalQuarter: props['Fiscal Quarter']?.rich_text?.[0]?.plain_text,
+        fiscalYear: props['Fiscal Year']?.number,
+      };
+    });
+
+    console.log(`✅ Found ${events.length} upcoming events (next ${daysAhead} days)`);
+    return events;
+  } catch (error) {
+    console.warn('⚠️  Failed to query upcoming events:', error);
+    return []; // Graceful degradation - analysis continues without events
+  }
 }
 
 /**
@@ -612,6 +727,27 @@ export default async function handler(
       // Continue without historical context
     }
 
+    // v1.2.17: Query upcoming events for event-aware analysis
+    console.log('\n📊 Step 4.5/7: Querying upcoming events...');
+    const upcomingEvents = await queryUpcomingEvents(
+      userAccessToken,
+      user.stockEventsDbId,
+      analysesPageId,
+      30 // Next 30 days
+    );
+
+    if (upcomingEvents.length > 0) {
+      console.log(`   Found ${upcomingEvents.length} upcoming event(s):`);
+      upcomingEvents.forEach(event => {
+        const daysUntil = Math.round(
+          (new Date(event.eventDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
+        console.log(`   - ${event.eventType}: ${event.eventDate} (in ${daysUntil} days)`);
+      });
+    } else {
+      console.log('   No upcoming events in next 30 days');
+    }
+
     console.log('\n📊 Step 5/7: Generating LLM analysis...');
 
     // Build AnalysisContext for LLM (v1.0.6 - Expanded to include ALL API data)
@@ -685,6 +821,7 @@ export default async function handler(
         recommendation: h.recommendation,
       })),
       deltas,
+      upcomingEvents: upcomingEvents.length > 0 ? upcomingEvents : undefined, // v1.2.17: Event-aware analysis
     };
 
     // Generate analysis using LLM

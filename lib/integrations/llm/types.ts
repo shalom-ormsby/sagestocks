@@ -6,11 +6,27 @@
 
 import { MarketContext } from '../../domain/market';
 
+/**
+ * Stock Event data for upcoming events (v1.2.17: Event-aware analysis)
+ */
+export interface StockEvent {
+  eventType: string;
+  eventDate: string; // YYYY-MM-DD
+  description: string;
+  confidence: string;
+  impactPotential?: string;
+  epsEstimate?: number;
+  dividendAmount?: number;
+  fiscalQuarter?: string;
+  fiscalYear?: number;
+}
+
 export interface AnalysisContext {
   ticker: string;
   currentDate: string; // ISO date string (e.g., "2025-11-16")
   currentMetrics: Record<string, any>; // Expanded to include all technical, fundamental, and macro data
   marketContext?: MarketContext | null; // NEW: Market regime and sector rotation context
+  upcomingEvents?: StockEvent[]; // NEW v1.2.17: Upcoming events for event-aware analysis
   previousAnalysis?: {
     date: string;
     compositeScore: number;
