@@ -66,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (hasTemplate && hasAccessToken) {
       // v1.2.15 KEY FIX: Create session for existing user, skip OAuth entirely
       // This prevents template duplication caused by Notion integration settings
-      await storeUserSession(res, {
+      const cookieString = await storeUserSession({
         userId: existingUser.id,
         email: existingUser.email,
         name: existingUser.name,
@@ -77,19 +77,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         userId: existingUser.id,
         email: normalizedEmail,
         reason: 'v1.2.15_skip_oauth_for_existing_users',
-        cookieHeader: res.getHeader('set-cookie'),
+        cookieLength: cookieString.length,
       });
 
-      // Use res.send() instead of res.json() to preserve Set-Cookie header
-      res.status(200);
-      res.setHeader('Content-Type', 'application/json');
-      res.send(JSON.stringify({
+      // CRITICAL: Use res.writeHead() to ensure Set-Cookie header is included
+      // This is required for Vercel serverless functions
+      const responseBody = JSON.stringify({
         success: true,
         exists: true,
         hasTemplate: true,
         requiresOAuth: false,
         redirectTo: '/pages/analyze.html',
-      }));
+      });
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(responseBody),
+        'Set-Cookie': cookieString,
+      });
+      res.end(responseBody);
       return;
     }
 

@@ -194,16 +194,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     // Step 4: Create session for all users (pending, denied, approved)
     // This allows pending users to check if their status changes without re-authenticating
-    await storeUserSession(res, {
+    const cookieString = await storeUserSession({
       userId: user.id,
       email: user.email,
       name: user.name,
       notionUserId: user.notionUserId,
     });
 
+    // Set the cookie header for the redirect
+    res.setHeader('Set-Cookie', cookieString);
+
     log(LogLevel.INFO, 'Session created', {
       email: userEmail,
       status: user.status,
+      cookieLength: cookieString.length,
     });
 
     // Step 5: Redirect based on approval status

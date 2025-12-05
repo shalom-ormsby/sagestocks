@@ -127,9 +127,8 @@ async function getDataSourceId(databaseId: string): Promise<string> {
  * Sets HTTP-only secure cookie with session ID
  */
 export async function storeUserSession(
-  res: VercelResponse,
   sessionData: Omit<Session, 'createdAt'>
-): Promise<void> {
+): Promise<string> {
   const sessionId = randomBytes(32).toString('hex');
   const session: Session = {
     ...sessionData,
@@ -138,7 +137,7 @@ export async function storeUserSession(
 
   try {
     // Store session in Redis
-    await fetch(`${REDIS_URL}/set/${sessionId}`, {
+    const setResponse = await fetch(`${REDIS_URL}/set/${sessionId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${REDIS_TOKEN}`,
@@ -147,17 +146,23 @@ export async function storeUserSession(
       body: JSON.stringify(session),
     });
 
+    if (!setResponse.ok) {
+      throw new Error(`Redis SET failed: ${setResponse.status}`);
+    }
+
     // Set TTL
-    await fetch(`${REDIS_URL}/expire/${sessionId}/${SESSION_TTL}`, {
+    const expireResponse = await fetch(`${REDIS_URL}/expire/${sessionId}/${SESSION_TTL}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${REDIS_TOKEN}`,
       },
     });
 
-    // Set HTTP-only secure cookie
-    // Always use Secure flag in production (Vercel serves over HTTPS)
-    // CRITICAL: Vercel requires lowercase 'set-cookie' header name
+    if (!expireResponse.ok) {
+      throw new Error(`Redis EXPIRE failed: ${expireResponse.status}`);
+    }
+
+    // Build cookie string
     const isLocalhost = process.env.VERCEL_ENV === undefined;
     const cookieOptions = [
       `si_session=${sessionId}`,
@@ -169,20 +174,18 @@ export async function storeUserSession(
     ];
 
     const cookieString = cookieOptions.join('; ');
-    // Use lowercase 'set-cookie' for Vercel compatibility
-    res.setHeader('set-cookie', cookieString);
 
-    log(LogLevel.INFO, 'Session cookie set', {
+    // CRITICAL: Return cookie string for caller to set in response
+    // Vercel's serverless functions require headers to be set before sending response
+
+    log(LogLevel.INFO, 'Session stored in Redis', {
       userId: sessionData.userId,
       email: sessionData.email,
-      cookieString: cookieString.replace(/si_session=[^;]+/, 'si_session=***'),
-      isLocalhost,
+      sessionIdPrefix: sessionId.substring(0, 10),
     });
 
-    log(LogLevel.INFO, 'Session stored successfully', {
-      userId: sessionData.userId,
-      email: sessionData.email,
-    });
+    // Return cookie string for caller to set
+    return cookieString;
   } catch (error) {
     log(LogLevel.ERROR, 'Failed to store session', {
       error: error instanceof Error ? error.message : String(error),
