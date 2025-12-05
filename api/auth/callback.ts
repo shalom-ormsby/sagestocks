@@ -226,23 +226,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       });
 
       // Check if setup is complete
-      // TEMP: Commented out for testing - always go through setup flow
-      // const setupComplete = Boolean(
-      //   user.stockAnalysesDbId &&
-      //   user.stockHistoryDbId &&
-      //   user.sageStocksPageId
-      // );
+      const setupComplete = Boolean(
+        user.stockAnalysesDbId &&
+        user.stockHistoryDbId &&
+        user.sageStocksPageId
+      );
+
+      log(LogLevel.INFO, 'Checking setup completion status', {
+        email: userEmail,
+        setupComplete,
+        stockAnalysesDbId: user.stockAnalysesDbId,
+        stockHistoryDbId: user.stockHistoryDbId,
+        sageStocksPageId: user.sageStocksPageId,
+      });
 
       // Redirect based on setup status
-      // TEMP: Commented out auto-redirect for testing - always go through setup flow
-      // if (setupComplete) {
-      //   // Setup already complete - go to analyzer
-      //   res.redirect('/analyze.html');
-      // } else {
-      // New user or incomplete setup - go to single-page setup flow
-      // Step 3 = Verify workspace and run first analysis (after template duplication in Step 1 and OAuth in Step 2)
-      res.redirect('/?step=2'); // OAuth (step 2) just completed, now verify workspace at step 3
-      // }
+      if (setupComplete) {
+        // Setup already complete - go directly to analyzer
+        log(LogLevel.INFO, 'Setup complete, redirecting to analyzer', {
+          email: userEmail,
+        });
+        res.redirect('/pages/analyze.html');
+      } else {
+        // New user or incomplete setup - go to single-page setup flow
+        // Step 3 = Verify workspace and run first analysis (after template duplication in Step 1 and OAuth in Step 2)
+        log(LogLevel.INFO, 'Setup incomplete, redirecting to setup flow', {
+          email: userEmail,
+        });
+        res.redirect('/?step=2'); // OAuth (step 2) just completed, now verify workspace at step 3
+      }
       return;
     }
 
