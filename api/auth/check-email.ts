@@ -77,6 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         userId: existingUser.id,
         email: normalizedEmail,
         reason: 'v1.2.15_skip_oauth_for_existing_users',
+        cookieHeader: res.getHeader('Set-Cookie'),
       });
 
       res.status(200).json({
