@@ -157,6 +157,7 @@ export async function storeUserSession(
 
     // Set HTTP-only secure cookie
     // Always use Secure flag in production (Vercel serves over HTTPS)
+    // CRITICAL: Vercel requires lowercase 'set-cookie' header name
     const isLocalhost = process.env.VERCEL_ENV === undefined;
     const cookieOptions = [
       `si_session=${sessionId}`,
@@ -168,7 +169,8 @@ export async function storeUserSession(
     ];
 
     const cookieString = cookieOptions.join('; ');
-    res.setHeader('Set-Cookie', cookieString);
+    // Use lowercase 'set-cookie' for Vercel compatibility
+    res.setHeader('set-cookie', cookieString);
 
     log(LogLevel.INFO, 'Session cookie set', {
       userId: sessionData.userId,

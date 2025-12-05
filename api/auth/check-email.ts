@@ -77,16 +77,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         userId: existingUser.id,
         email: normalizedEmail,
         reason: 'v1.2.15_skip_oauth_for_existing_users',
-        cookieHeader: res.getHeader('Set-Cookie'),
+        cookieHeader: res.getHeader('set-cookie'),
       });
 
-      res.status(200).json({
+      // Use res.send() instead of res.json() to preserve Set-Cookie header
+      res.status(200);
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify({
         success: true,
         exists: true,
         hasTemplate: true,
         requiresOAuth: false,
         redirectTo: '/pages/analyze.html',
-      });
+      }));
       return;
     }
 
