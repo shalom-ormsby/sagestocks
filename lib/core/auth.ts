@@ -194,10 +194,18 @@ export async function validateSession(req: VercelRequest): Promise<Session | nul
       .find((c) => c.trim().startsWith('si_session='));
 
     if (!sessionCookie) {
+      log(LogLevel.INFO, 'No session cookie found', {
+        cookiesPresent: cookies.length > 0,
+        cookies: cookies ? cookies.substring(0, 100) : 'none',
+      });
       return null;
     }
 
     const sessionId = sessionCookie.split('=')[1].trim();
+
+    log(LogLevel.INFO, 'Session cookie found, validating...', {
+      sessionIdPrefix: sessionId.substring(0, 10),
+    });
 
     // Retrieve session from Redis
     const response = await fetch(`${REDIS_URL}/get/${sessionId}`, {
@@ -209,17 +217,36 @@ export async function validateSession(req: VercelRequest): Promise<Session | nul
     const data = (await response.json()) as { result: string | null };
 
     if (!data.result) {
+      log(LogLevel.INFO, 'Session not found in Redis', {
+        sessionIdPrefix: sessionId.substring(0, 10),
+      });
       return null;
     }
 
     const session = JSON.parse(data.result) as Session;
 
+    log(LogLevel.INFO, 'Session retrieved from Redis', {
+      userId: session.userId,
+      email: session.email,
+      sessionAge: Date.now() - session.createdAt,
+    });
+
     // Check if session is expired (shouldn't happen with Redis TTL, but double-check)
     const age = Date.now() - session.createdAt;
     if (age > SESSION_TTL * 1000) {
+      log(LogLevel.INFO, 'Session expired', {
+        sessionIdPrefix: sessionId.substring(0, 10),
+        age,
+        maxAge: SESSION_TTL * 1000,
+      });
       await clearUserSession(sessionId);
       return null;
     }
+
+    log(LogLevel.INFO, 'Session validated successfully', {
+      userId: session.userId,
+      email: session.email,
+    });
 
     return session;
   } catch (error) {

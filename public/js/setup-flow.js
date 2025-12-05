@@ -77,11 +77,24 @@ async function handleSetupStart(emailInput = null) {
 
   // Check database: Route based on user status
   try {
-    console.log('🔍 Checking database for existing user...');
+    console.log('🔍 Checking database for existing user...', {
+      userEmail,
+      hasSessionCookie,
+      savedEmail,
+    });
 
     if (userEmail) {
       const response = await fetch(`/api/auth/check-email?email=${encodeURIComponent(userEmail)}`);
       const data = await response.json();
+
+      console.log('📋 Check-email response:', {
+        success: data.success,
+        exists: data.exists,
+        hasTemplate: data.hasTemplate,
+        requiresOAuth: data.requiresOAuth,
+        redirectTo: data.redirectTo,
+        fullResponse: data,
+      });
 
       if (!data.requiresOAuth && data.redirectTo) {
         // Existing user with template -> Skip OAuth, go directly to app
@@ -89,8 +102,13 @@ async function handleSetupStart(emailInput = null) {
         window.location.href = data.redirectTo;
       } else if (data.requiresOAuth) {
         // New user OR reconnection needed: Go through OAuth with automatic template duplication
-        console.log('🔐 OAuth required - redirecting to authorization (template will auto-duplicate)');
+        console.log('🔐 OAuth required - redirecting to authorization (template will auto-duplicate)', {
+          exists: data.exists,
+          hasTemplate: data.hasTemplate,
+        });
         proceedToOAuth(userEmail);
+      } else {
+        console.warn('⚠️ Unexpected response from check-email:', data);
       }
     } else if (hasSessionCookie) {
       // Has session: Skip to app

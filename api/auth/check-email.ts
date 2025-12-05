@@ -50,13 +50,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const hasTemplate = Boolean(existingUser.sageStocksPageId);
     const hasAccessToken = Boolean(existingUser.accessToken);
 
-    log(LogLevel.INFO, 'Existing user found', {
+    log(LogLevel.INFO, 'Existing user found - DETAILED DEBUG', {
       email: normalizedEmail,
       userId: existingUser.id,
       notionUserId: existingUser.notionUserId,
       hasTemplate,
       hasAccessToken,
       sageStocksPageId: existingUser.sageStocksPageId,
+      stockAnalysesDbId: existingUser.stockAnalysesDbId,
+      stockHistoryDbId: existingUser.stockHistoryDbId,
+      accessToken: existingUser.accessToken ? `${existingUser.accessToken.substring(0, 20)}...` : null,
+      status: existingUser.status,
     });
 
     if (hasTemplate && hasAccessToken) {
