@@ -167,7 +167,15 @@ export async function storeUserSession(
       ...(!isLocalhost ? ['Secure'] : []), // Secure flag for HTTPS (Vercel)
     ];
 
-    res.setHeader('Set-Cookie', cookieOptions.join('; '));
+    const cookieString = cookieOptions.join('; ');
+    res.setHeader('Set-Cookie', cookieString);
+
+    log(LogLevel.INFO, 'Session cookie set', {
+      userId: sessionData.userId,
+      email: sessionData.email,
+      cookieString: cookieString.replace(/si_session=[^;]+/, 'si_session=***'),
+      isLocalhost,
+    });
 
     log(LogLevel.INFO, 'Session stored successfully', {
       userId: sessionData.userId,
