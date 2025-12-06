@@ -98,6 +98,7 @@ interface AnalyzeResponse {
     resetAt: string;
     bypassed?: boolean;
   };
+  analysisContent?: string; // v1.2.18: Return generated analysis text for preview
   error?: string;
   details?: string;
 }
@@ -999,6 +1000,7 @@ export default async function handler(
             bypassed: rateLimitResult.bypassed,
           }
         : undefined,
+      analysisContent: llmResult ? llmResult.content : undefined, // v1.2.18: Return content
     };
 
     // Set rate limit headers
