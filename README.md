@@ -2,9 +2,9 @@
 
 *Last updated: December 6, 2025*
 
-**Invest with calm confidence, powered by intelligence that never hallucinates.**
+**Invest with calm confidence, powered by intelligence you can trust.**
 
-Sage Stocks delivers professional-grade stock analysis through **Sage Intelligence** — our proprietary knowledge layer that combines deterministic financial calculations with proven investment frameworks. Zero guesswork. Zero hallucinations. Just clear, context-aware insights that help you make better decisions.
+Sage Stocks delivers professional-grade stock analysis through **Sage Intelligence** — our proprietary knowledge layer that combines deterministic financial calculations with proven investment frameworks. Pure math. Pure financial insight. Clear, context-aware intelligence that helps you make better investment decisions.
 
 **Version:** v0.1.0 (User) / v1.2.21 (Dev)
 
