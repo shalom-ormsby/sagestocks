@@ -58,6 +58,7 @@ export interface AnalysisResult {
     fred: number;
     total: number;
   };
+  analysisContent?: string; // v1.2.18: Return generated analysis text
   error?: string;
 }
 
@@ -391,6 +392,7 @@ export async function analyzeStockCore(
         cost: llmResult.cost,
         latencyMs: llmResult.latencyMs,
       },
+      analysisContent: llmResult.content, // v1.2.18: Return generated content
       apiCalls: {
         fmp: fmpCalls,
         fred: fredCalls,
@@ -434,6 +436,7 @@ export async function analyzeStockCore(
         fred: 0,
         total: 0,
       },
+      analysisContent: '',
       error: error instanceof Error ? error.message : String(error),
     };
   }
