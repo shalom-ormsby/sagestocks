@@ -1,6 +1,6 @@
 # Sage Stocks
 
-*Last updated: December 6, 2025*
+_Last updated: December 6, 2025_
 
 **Invest with calm confidence, powered by intelligence that never hallucinates.**
 
@@ -23,7 +23,7 @@ At the core of Sage Stocks is **Sage Intelligence** — a two-layer architecture
 1. **The math layer:** Deterministic calculations based on professional-grade financial metrics. No estimates. No guesses.
 2. **The interpretation layer:** AI analysis that applies proven investment frameworks (Buffett, Dalio, Lynch) systematically and unemotionally.
 
-**Design Philosophy:** *Simple. Smart. Approachable.* Built for daily stock analyses, not enterprise scale. Clean architecture, production-grade code, minimal complexity.
+**Design Philosophy:** _Simple. Smart. Approachable._ Built for daily stock analyses, not enterprise scale. Clean architecture, production-grade code, minimal complexity.
 
 ### What Sage Stocks Does for You
 
@@ -46,14 +46,14 @@ At the core of Sage Stocks is **Sage Intelligence** — a two-layer architecture
 
 Sage Intelligence evaluates every stock across **six critical dimensions**:
 
-| Category | Weight | What It Measures |
-| --- | --- | --- |
-| **Technical** | 28.5% | RSI, MACD, Bollinger Bands, SMA crossovers, volume trends |
-| **Fundamental** | 33% | P/E ratio, EPS growth, revenue growth, profit margins, ROE |
-| **Macro** | 19% | Market regime, sector rotation, yield curve, VIX, unemployment |
-| **Risk** | 14.5% | Beta, volatility, drawdown, correlation to market |
-| **Market Alignment** | 5% | Regime fit (beta vs Risk-On/Off), sector leadership, VIX context |
-| **Sentiment** | 0% | Calculated score (1.0-5.0) displayed for reference, not included in composite |
+| Category             | Weight | What It Measures                                                              |
+| -------------------- | ------ | ----------------------------------------------------------------------------- |
+| **Technical**        | 28.5%  | RSI, MACD, Bollinger Bands, SMA crossovers, volume trends                     |
+| **Fundamental**      | 33%    | P/E ratio, EPS growth, revenue growth, profit margins, ROE                    |
+| **Macro**            | 19%    | Market regime, sector rotation, yield curve, VIX, unemployment                |
+| **Risk**             | 14.5%  | Beta, volatility, drawdown, correlation to market                             |
+| **Market Alignment** | 5%     | Regime fit (beta vs Risk-On/Off), sector leadership, VIX context              |
+| **Sentiment**        | 0%     | Calculated score (1.0-5.0) displayed for reference, not included in composite |
 
 **Composite Score (1.0-5.0)** combines all dimensions into a single actionable signal:
 
@@ -171,9 +171,9 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 **LLM Integration (Sage Intelligence):**
 
 - **Provider-agnostic abstraction layer** supporting:
-    - Google Gemini (Flash 2.5, Flash 1.5) - Primary, $0.013/analysis
-    - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo)
-    - Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku)
+  - Google Gemini (Flash 2.5, Flash 1.5) - Primary, $0.013/analysis
+  - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo)
+  - Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku)
 - **Configurable via environment variable** (`LLM_PROVIDER`)
 - **67% token reduction** vs. original prompts
 
@@ -184,14 +184,63 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 
 ### API Endpoints
 
-| Endpoint | Method | Description | Timeout |
-| --- | --- | --- | --- |
-| `/api/health` | GET | Health check (uptime, version) | 10s |
-| `/api/analyze` | POST | Stock analysis (full Sage Intelligence workflow) | 300s |
-| `/api/webhook` | POST | Notion webhook handler | 60s |
-| `/api/bypass` | GET/POST | Activate bypass code session | 10s |
-| `/api/usage` | GET | Check rate limit usage | 10s |
-| `/api/api-status` | GET | API monitoring dashboard | 30s |
+| Endpoint          | Method   | Description                                      | Timeout |
+| ----------------- | -------- | ------------------------------------------------ | ------- |
+| `/api/health`     | GET      | Health check (uptime, version)                   | 10s     |
+| `/api/analyze`    | POST     | Stock analysis (full Sage Intelligence workflow) | 300s    |
+| `/api/webhook`    | POST     | Notion webhook handler                           | 60s     |
+| `/api/bypass`     | GET/POST | Activate bypass code session                     | 10s     |
+| `/api/usage`      | GET      | Check rate limit usage                           | 10s     |
+| `/api/api-status` | GET      | API monitoring dashboard                         | 30s     |
+
+### Response Schema (/api/analyze)
+
+```json
+{
+  "success": true,
+  "ticker": "AAPL",
+  "analysesPageId": "13d...", // Notion page ID for database row
+  "childAnalysisPageId": "14e...", // Notion page ID for full report
+  "analysisContent": "## 📊 Market Environment...", // Full markdown analysis text
+  "scores": {
+    "composite": 4.2,
+    "recommendation": "Strong Buy",
+    "technical": 3.8,
+    "fundamental": 4.5,
+    "macro": 4.0,
+    "risk": 4.2,
+    "sentiment": 3.5,
+    "marketAlignment": 4.0
+  },
+  "dataQuality": {
+    "completeness": 1.0,
+    "grade": "A",
+    "confidence": "High"
+  },
+  "performance": {
+    "duration": 4523,
+    "fmpCalls": 11,
+    "fredCalls": 6,
+    "notionCalls": 8
+  },
+  "llmMetadata": {
+    "provider": "Google Gemini",
+    "model": "gemini-2.5-flash",
+    "tokensUsed": {
+      "input": 1500,
+      "output": 1800,
+      "total": 3300
+    },
+    "cost": 0.013,
+    "latencyMs": 3200
+  },
+  "rateLimit": {
+    "remaining": 9,
+    "total": 10,
+    "resetAt": "2025-12-07T08:00:00.000Z"
+  }
+}
+```
 
 ### Data Flow (v1.2.21)
 
@@ -334,15 +383,15 @@ See [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md) for detailed histo
 
 **Monthly Operating Costs (v1.2.21):**
 
-| Service | Cost | Usage |
-| --- | --- | --- |
-| Vercel Pro | $20/month | 300s timeout, unlimited invocations |
-| FMP API | $22-29/month | Stock data, fundamentals, technical indicators |
-| Google Gemini | $40/month | 3,000 analyses (@ $0.013 each) |
-| FRED API | Free | Macroeconomic data |
-| Notion | Free | Database storage (v1.2.21 only) |
-| Upstash Redis | Free | Rate limiting state (under free tier limits) |
-| **Total** | **$82-89/month** | For personal use (up to 3,000 analyses/month) |
+| Service       | Cost             | Usage                                          |
+| ------------- | ---------------- | ---------------------------------------------- |
+| Vercel Pro    | $20/month        | 300s timeout, unlimited invocations            |
+| FMP API       | $22-29/month     | Stock data, fundamentals, technical indicators |
+| Google Gemini | $40/month        | 3,000 analyses (@ $0.013 each)                 |
+| FRED API      | Free             | Macroeconomic data                             |
+| Notion        | Free             | Database storage (v1.2.21 only)                |
+| Upstash Redis | Free             | Rate limiting state (under free tier limits)   |
+| **Total**     | **$82-89/month** | For personal use (up to 3,000 analyses/month)  |
 
 **v2.0 Upgrade (PostgreSQL):**
 
@@ -430,4 +479,4 @@ Built with:
 
 ---
 
-*For legacy v0.2.x Python documentation, see [docs/legacy/README_v0.2.x.md](docs/legacy/README_v0.2.x.md)*
+_For legacy v0.2.x Python documentation, see [docs/legacy/README_v0.2.x.md](docs/legacy/README_v0.2.x.md)_
