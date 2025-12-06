@@ -6,7 +6,7 @@
 
 Genius-level financial intelligence that simultaneously analyzes the fundamentals, technicals, market regime, and sector dynamics of individual stocks in the context of the global market.
 
-**Version:** v0.1.0 (User) / v1.4.0 (Dev)
+**Version:** v0.1.0 (User) / v1.2.21 (Dev)
 
 **Status:** Production-ready with market context integration, delta-first analysis, and event calendar
 
@@ -64,7 +64,7 @@ Sage Stocks is a serverless stock analysis platform built on a **two-layer archi
 
 **Integration:**
 
-- **Notion API** - Database operations (v1.4.0, transitioning to PostgreSQL in v2.0)
+- **Notion API** - Database operations (v1.2.21, transitioning to PostgreSQL in v2.0)
 - **REST APIs** - All external communication via HTTP
 
 ### API Endpoints
@@ -78,7 +78,7 @@ Sage Stocks is a serverless stock analysis platform built on a **two-layer archi
 | `/api/usage` | GET | Check rate limit usage | 10s |
 | `/api/api-status` | GET | API monitoring dashboard | 30s |
 
-### Data Flow (v1.4.0)
+### Data Flow (v1.2.21)
 
 ```
 User (Web Interface)
@@ -120,7 +120,7 @@ Composite score (1.0-5.0) calculated from weighted categories:
 | **Macro** | 19% | Market regime, sector rotation, yield curve, VIX, unemployment |
 | **Risk** | 14.5% | Beta, volatility, drawdown, correlation to market |
 | **Market Alignment** | 5% | Regime fit (beta vs Risk-On/Off), sector leadership, VIX context |
-| **Sentiment** | - | News sentiment, analyst ratings (unweighted, for context) |
+| **Sentiment** | 0% | Calculated score (1.0-5.0) displayed for reference, not included in composite |
 | **Sector** | - | Relative sector performance vs. S&P 500 |
 
 **Recommendations:**
@@ -176,11 +176,11 @@ Composite score (1.0-5.0) calculated from weighted categories:
 
 ## Project Status
 
-**Current Version:** v0.1.0 (User) / v1.4.0 (Dev)
+**Current Version:** v0.1.0 (User) / v1.2.21 (Dev)
 
 **Completed (v1.0-1.4):**
 
-- ✅ TypeScript/Vercel serverless architecture (~3,500 LOC)
+- ✅ TypeScript/Vercel serverless architecture (~14,800 LOC)
 - ✅ Multi-factor scoring engine with market alignment (7 dimensions)
 - ✅ FMP + FRED API integration (23 calls for market context, 17 per stock)
 - ✅ Market context integration (v1.3.0) - Risk-On/Risk-Off regime classification
@@ -213,7 +213,7 @@ See [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md) for detailed histo
 
 ## Cost Structure
 
-**Monthly Operating Costs (v1.4.0):**
+**Monthly Operating Costs (v1.2.21):**
 
 | Service | Cost | Usage |
 | --- | --- | --- |
@@ -221,7 +221,7 @@ See [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md) for detailed histo
 | FMP API | $22-29/month | Stock data, fundamentals, technical indicators |
 | Google Gemini | $40/month | 3,000 analyses (@ $0.013 each) |
 | FRED API | Free | Macroeconomic data |
-| Notion | Free | Database storage (v1.4.0 only) |
+| Notion | Free | Database storage (v1.2.21 only) |
 | Upstash Redis | Free | Rate limiting state (under free tier limits) |
 | **Total** | **$82-89/month** | For personal use (up to 3,000 analyses/month) |
 
@@ -306,7 +306,7 @@ Built with:
 - Financial Modeling Prep - Market data
 - FRED - Economic data
 - Google Gemini - LLM analysis generation
-- Notion - Database integration (v1.4.0)
+- Notion - Database integration (v1.2.21)
 - Upstash - Redis rate limiting
 
 ---
