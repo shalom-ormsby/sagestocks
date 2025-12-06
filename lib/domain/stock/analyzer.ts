@@ -436,7 +436,6 @@ export async function analyzeStockCore(
         fred: 0,
         total: 0,
       },
-      analysisContent: '',
       error: error instanceof Error ? error.message : String(error),
     };
   }
