@@ -6,7 +6,7 @@
 
 Sage Stocks delivers professional-grade stock analysis through **Sage Intelligence** — our proprietary knowledge layer that combines deterministic financial calculations with proven investment frameworks. Zero guesswork. Zero hallucinations. Just clear, context-aware insights that help you make better decisions.
 
-**Version:** v0.1.0 (User) / v1.4.0 (Dev)
+**Version:** v0.1.0 (User) / v1.2.21 (Dev)
 
 **Status:** Production-ready with Sage Intelligence engine, Sage Counsel decision journal, market context integration, and event-aware analysis
 
@@ -179,7 +179,7 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 
 **Integration:**
 
-- **Notion API** - Database operations (v1.4.0, transitioning to PostgreSQL in v2.0)
+- **Notion API** - Database operations (v1.2.21, transitioning to PostgreSQL in v2.0)
 - **REST APIs** - All external communication via HTTP
 
 ### API Endpoints
@@ -193,99 +193,103 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 | `/api/usage` | GET | Check rate limit usage | 10s |
 | `/api/api-status` | GET | API monitoring dashboard | 30s |
 
-### Data Flow (v1.4.0)
+### Data Flow (v1.2.21)
 
 ```
-User (Web Interface)
-    ↓ POST /api/analyze {ticker, userId}
-Vercel Serverless Function
-    ↓ Check rate limit (Redis)
-    ↓ [Step 0] Fetch market context (cached, <100ms or 3-5s if cache miss)
-        • Market regime classification (Risk-On/Risk-Off/Transition)
-        • Sector rotation analysis (11 sector ETFs)
-        • Economic indicators (VIX, Fed Funds, Unemployment, Yield Curve)
-    ↓ Fetch stock data (FMP + FRED, 3-5s)
-    ↓ Calculate scores including market alignment (1s)
-    ↓ Query 90-day historical analyses (Notion, 2-5s)
-    ↓ Compute deltas with regime context (<1s)
-    ↓ Generate delta-first LLM analysis (Gemini, 10-20s)
-    ↓ Write to Notion (3 operations, 10-15s)
-        • Update Stock Analyses page (metrics + market regime)
-        • Create child analysis page (AI content)
-        • Archive to Stock History (with market regime)
-    ↓ Return {pageUrl, scores, metadata}
-User
-    → Opens Notion analysis page
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          USER REQUEST (POST /api/analyze)                │
+│                          { ticker: "AAPL", userId: "..." }               │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                    ┌────────────────┴────────────────┐
+                    │   Authentication & Rate Limit    │
+                    │   - Verify OAuth session         │
+                    │   - Check Upstash Redis (10/day) │
+                    └────────────────┬────────────────┘
+                                     │
+        ┌────────────────────────────┼────────────────────────────┐
+        │                            │                            │
+        ▼                            ▼                            ▼
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│   FMP API     │          │   FRED API    │          │  Notion API   │
+│ (Stock Data)  │          │ (Macro Data)  │          │ (Historical)  │
+│               │          │               │          │               │
+│ • Quote       │          │ • Fed Funds   │          │ • Past 90     │
+│ • Technicals  │          │ • VIX         │          │   days of     │
+│ • Fundamentals│          │ • Unemployment│          │   analyses    │
+│ • 30d History │          │ • Yield Curve │          │ • Stock       │
+│               │          │ • GDP         │          │   Events DB   │
+│ (11 calls)    │          │ (6 calls)     │          │ (2 queries)   │
+└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
+        │                          │                          │
+        └──────────────────────────┴──────────────────────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │   Market Context Analysis    │
+                    │   - Regime Detection         │
+                    │     (Risk-On/Off/Transition) │
+                    │   - Sector Rotation          │
+                    │   - VIX Analysis             │
+                    └──────────────┬──────────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │   Sage Intelligence Scoring  │
+                    │   - Technical (28.5%)        │
+                    │   - Fundamental (33%)        │
+                    │   - Macro (19%)              │
+                    │   - Risk (14.5%)             │
+                    │   - Market Alignment (5%)    │
+                    │   - Sentiment (reference)    │
+                    │   → Composite Score (1-5)    │
+                    └──────────────┬──────────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │   Delta Calculation          │
+                    │   - Score changes            │
+                    │   - Price movements          │
+                    │   - Trend direction          │
+                    │   - Regime transitions       │
+                    └──────────────┬──────────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │   LLM Analysis Generation    │
+                    │   (Gemini Flash 2.5)         │
+                    │   - Market environment       │
+                    │   - Delta-first narrative    │
+                    │   - Upcoming events          │
+                    │   - 7-section report         │
+                    │   (~2,000 tokens)            │
+                    └──────────────┬──────────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│ Stock Analyses│          │ Child Analysis│          │ Stock History │
+│   Database    │          │     Page      │          │   Database    │
+│               │          │               │          │               │
+│ • Update row  │          │ • Create dated│          │ • Archive     │
+│ • Write scores│          │   sub-page    │          │   snapshot    │
+│ • Add AI text │          │ • Full content│          │ • Regime tag  │
+│ • Set status  │          │               │          │               │
+│   "Complete"  │          │               │          │               │
+└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
+        │                          │                          │
+        └──────────────────────────┴──────────────────────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │      Response to User        │
+                    │   - Scores & recommendation  │
+                    │   - Performance metrics      │
+                    │   - Page IDs (Notion links)  │
+                    │   - Rate limit status        │
+                    │   - Analysis preview text    │
+                    └──────────────────────────────┘
+
+Total Duration: ~25-45 seconds
+API Calls: FMP (11) + FRED (6) + Notion (6-8) = 23-25 calls
+Cost per Analysis: ~$0.013 (LLM) + ~$0.002 (APIs) = $0.015
 ```
-
-**Total Latency:** 30-45 seconds (under 300s Vercel Pro timeout)
-
----
-
-## Key Features
-
-### Multi-Dimensional Analysis
-
-Composite score (1.0-5.0) calculated from weighted categories:
-
-| Category | Weight | Metrics Included |
-| --- | --- | --- |
-| **Technical** | 28.5% | RSI, MACD, Bollinger Bands, SMA crossovers, volume trends |
-| **Fundamental** | 33% | P/E ratio, EPS growth, revenue growth, profit margins, ROE |
-| **Macro** | 19% | Market regime, sector rotation, yield curve, VIX, unemployment |
-| **Risk** | 14.5% | Beta, volatility, drawdown, correlation to market |
-| **Market Alignment** | 5% | Regime fit (beta vs Risk-On/Off), sector leadership, VIX context |
-| **Sentiment** | 0% | Calculated score (1.0-5.0) displayed for reference, not included in composite |
-| **Sector** | - | Relative sector performance vs. S&P 500 |
-
-**Recommendations:**
-
-- Strong Buy (4.0+)
-- Buy (3.5-3.99)
-- Moderate Buy (3.0-3.49)
-- Hold (2.5-2.99)
-- Moderate Sell (2.0-2.49)
-- Sell (1.5-1.99)
-- Strong Sell (<1.5)
-
-### AI-Generated Analysis
-
-7-section narrative generated by Google Gemini Flash 2.5:
-
-1. **Executive Summary** - Buy/Hold/Sell recommendation with confidence level
-2. **Technical Analysis** - Chart patterns, momentum indicators, support/resistance
-3. **Fundamental Analysis** - Valuation metrics, earnings quality, growth prospects
-4. **Risk Assessment** - Downside risks, volatility analysis, worst-case scenarios
-5. **Macro Context** - Economic headwinds/tailwinds, sector trends, market regime
-6. **Historical Trends** - Score deltas vs. previous analyses, trend direction
-7. **Action Items** - Specific recommendations (e.g., "Wait for RSI < 30 before entry")
-
-**Token Optimization:**
-
-- Original prompts: 6,000 tokens → 30s generation time
-- Optimized prompts: 2,000 tokens → 10-15s generation time
-- **67% reduction** in tokens, **50% reduction** in latency
-
-### Rate Limiting & Access Control
-
-**User-level quotas:**
-
-- 10 analyses per user per day (resets at midnight UTC)
-- Tracked in Upstash Redis (distributed state)
-- Graceful degradation (fails open if Redis unavailable)
-
-**Bypass code system:**
-
-- Session-based bypass (one-time code entry)
-- Unlimited analyses until midnight UTC
-- Stored in Redis with TTL expiry
-- Admin bypass via environment variable
-
-**Endpoints:**
-
-- `GET /api/usage` - Check remaining quota (non-consuming)
-- `POST /api/bypass` - Activate bypass code session
-- `GET /api/bypass?code=XXX` - URL parameter activation
 
 ---
 
@@ -421,7 +425,7 @@ Built with:
 - Financial Modeling Prep - Market data
 - FRED - Economic data
 - Google Gemini - LLM analysis generation
-- Notion - Database integration (v1.4.0)
+- Notion - Database integration (v1.2.21)
 - Upstash - Redis rate limiting
 
 ---
