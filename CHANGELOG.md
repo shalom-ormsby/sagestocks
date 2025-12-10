@@ -1,6 +1,6 @@
 # Changelog
 
-**Last Updated:** December 3, 2025
+**Last Updated:** December 10, 2025
 
 All notable changes to Sage Stocks will be documented in this file.
 
@@ -96,6 +96,132 @@ All development versions are documented below with full technical details.
 ---
 
 ## [Unreleased]
+
+### 🔒 Security Fix: Token Decryption After Encryption Key Rotation (v1.2.22)
+
+**Date:** December 10, 2025
+**Type:** Security Enhancement + Bug Fix
+**Status:** ✅ Complete
+**Severity:** 🔴 Critical - Blocking all analyses after key rotation
+
+**Issue:**
+After rotating the `ENCRYPTION_KEY` environment variable for security purposes, all existing OAuth access tokens stored in the Beta Users database were encrypted with the old key and could no longer be decrypted with the new key. This caused all stock analyses to fail with "Token decryption failed" errors.
+
+**Root Cause:**
+- OAuth tokens are encrypted using AES-256-GCM before storing in Notion database
+- When `ENCRYPTION_KEY` is rotated, existing encrypted tokens become undecryptable
+- Logging out and back in should re-encrypt with new key, but token wasn't being updated
+
+**The Fix:**
+
+**1. Enhanced Error Handling**
+- Created `safeDecryptToken()` helper function in `lib/core/auth.ts`
+- Provides clear, actionable error messages when decryption fails
+- Logs detailed context for debugging (userId, email)
+
+```typescript
+export async function safeDecryptToken(
+  encryptedToken: string,
+  context?: { userId?: string; email?: string }
+): Promise<string> {
+  try {
+    return await decryptToken(encryptedToken);
+  } catch (error) {
+    log(LogLevel.ERROR, 'Token decryption failed - likely encryption key rotation', {
+      ...context,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new Error('TOKEN_DECRYPTION_FAILED: Authentication token could not be decrypted. Please log out and log back in to re-authenticate.');
+  }
+}
+```
+
+**2. Updated Analyze Endpoint**
+- Modified `api/analyze/index.ts` to use `safeDecryptToken()`
+- Returns 401 with clear user instructions on decryption failure
+- Error response: "Please log out and log back in to re-authenticate with Notion"
+
+**3. Migration Tools**
+Created two maintenance scripts:
+- `scripts/maintenance/clear-encrypted-tokens.ts` - Clear all users' tokens
+- `scripts/maintenance/clear-my-token.ts` - Clear single user's token
+- Added npm scripts: `npm run clear-tokens`, `npm run clear-my-token`
+
+**4. Debug Endpoint**
+- Created `/api/debug/check-encryption` to verify ENCRYPTION_KEY status
+- Tests encryption/decryption with current key
+- Useful for verifying key rotation success
+
+**Files Changed:**
+1. `lib/core/auth.ts` - Added `safeDecryptToken()` helper (line 537-554)
+2. `api/analyze/index.ts` - Updated to use `safeDecryptToken()` (line 27, 282)
+3. `api/debug/check-encryption.ts` - New debug endpoint
+4. `scripts/maintenance/clear-encrypted-tokens.ts` - Bulk token clearing
+5. `scripts/maintenance/clear-my-token.ts` - Single user token clearing
+6. `package.json` - Added npm scripts for token management
+
+**Security Context:**
+This issue arose after completing a security cleanup that:
+- Removed `.env` from all git history
+- Rotated all API keys and encryption keys
+- Removed a cron header authentication backdoor
+- The key rotation was necessary and correct; this fix handles the aftermath
+
+**User Impact:**
+- ✅ Clear error messages guide users to re-authenticate
+- ✅ Self-service fix (log out/in)
+- ✅ Admin tools for bulk token clearing if needed
+- ✅ Debug endpoint to verify encryption status
+
+**Testing:**
+- ✅ Verified encryption/decryption works with new key
+- ✅ Tested token clearing scripts
+- ✅ Confirmed error messages are user-friendly
+- ✅ Validated re-authentication flow updates token correctly
+
+**Prevention:**
+For future key rotations:
+1. Use debug endpoint to verify new key works: `/api/debug/check-encryption`
+2. Run token clearing script: `npm run clear-tokens`
+3. Notify users to log out and back in
+4. Monitor logs for successful re-authentications
+
+---
+
+### 📋 Research: Third-Party API Access (v1.2.23)
+
+**Date:** December 10, 2025
+**Type:** Research + Proposal
+**Status:** 📋 Proposal (Not Implemented)
+
+**Context:**
+After removing the cron header authentication backdoor during security cleanup, the BaseBase project (a standalone version of Sage Stocks that doesn't require Notion) lost its ability to fetch stock analyses. This research explores secure alternatives for 3rd party API access.
+
+**Proposal Document:**
+- Created comprehensive analysis: `docs/planning/third-party-api-proposal.md`
+- Recommends Partner API system with token-based authentication
+- New endpoint: `/api/partner/analyze` (returns JSON, no Notion required)
+- Estimated implementation: 2-3 hours (Phase 1)
+- Security: API key validation, rate limiting, usage tracking
+
+**Key Features:**
+- ✅ Secure token-based auth (no backdoors)
+- ✅ Separate from user-facing API
+- ✅ Returns raw JSON (no Notion integration)
+- ✅ Rate limiting to prevent abuse
+- ✅ Partner usage tracking
+
+**Next Steps:**
+- Awaiting approval to implement Phase 1
+- Coordinate with BaseBase team for API key
+- Deploy and monitor for 1 week
+
+**Cost Analysis:**
+- ~$0.031 per analysis (FMP + LLM)
+- BaseBase estimate: 100 analyses/day = $93/month
+- Recommendation: Charge partners $150-200/month
+
+---
 
 ### ✨ Feature: Event-Aware Stock Analysis (v1.2.17)
 
