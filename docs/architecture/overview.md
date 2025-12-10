@@ -43,7 +43,7 @@ Sage Stocks is a **serverless stock analysis platform** that delivers automated 
 - **Market context awareness** - Regime detection (Risk-On, Risk-Off, Transition) with sector rotation tracking (v1.0.7)
 - **Stock events calendar** - Automated ingestion of earnings calls, dividends, and stock splits for Portfolio/Watchlist stocks (v1.2.16)
 - **Chunked processing architecture** - Redis-backed queue persistence for 15+ stock daily analyses without timeout (v1.2.0)
-- **LLM-generated analysis** - 7-section regime-aware analysis narratives (Google Gemini Flash 2.5, $0.013/analysis)
+- **LLM-generated analysis** - 7-section regime-aware analysis narratives (Anthropic Claude Sonnet 4.5, ~$0.03-0.05/analysis)
 - **Historical context tracking** - Delta tracking across previous analyses
 - **Template version management** - User-controlled upgrade system with data preservation (v1.1.6)
 - **Timezone-aware rate limiting** - User-specific quotas with admin bypass (Upstash Redis)
@@ -75,12 +75,13 @@ Sage Stocks is a **serverless stock analysis platform** that delivers automated 
 - **Upstash Redis** - Distributed state for rate limiting + market context caching (1-hour TTL, optional - v1.0.7)
 
 ### LLM Integration
-- **Google Gemini Flash 2.5** (Primary) - Analysis generation, $0.013 per analysis, 50% token reduction vs GPT-4
+- **Anthropic Claude Sonnet 4.5** (Primary) - Analysis generation, ~$0.03-0.05 per analysis, 67% token reduction (6,000 → 2,000 tokens)
 - **LLM Abstraction Layer** (v1.0.2) - Provider-agnostic interface supporting:
-  - Google Gemini (Flash 2.5, Flash 1.5)
-  - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo)
-  - Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku)
-  - Configurable via `LLM_PROVIDER` environment variable
+  - Anthropic Claude (Sonnet 4.5, Sonnet 3.5, Haiku) - Primary, most intelligent for analysis
+  - Google Gemini (Flash 2.5, Flash 1.5) - Alternative, lower cost (~$0.013/analysis)
+  - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo) - Alternative
+  - **Configuration:** Set in [.env.example](../../.env.example#L34) via `LLM_PROVIDER` variable
+  - **Provider Selection Logic:** [api/analyze/index.ts:821](../../api/analyze/index.ts#L821) via `LLMFactory.getProviderFromEnv()`
   - Easy provider switching for cost/performance optimization
 
 ### Authentication & User Management
@@ -170,7 +171,8 @@ Sage Stocks is a **serverless stock analysis platform** that delivers automated 
 ## 4. LLM Processing
 ┌─────────────────────────────────┐
 │   LLM Abstraction Layer         │
-│   (Gemini / Claude / OpenAI)    │
+│   (Claude / Gemini / OpenAI)    │
+│   Primary: Claude Sonnet 4.5    │
 │                                 │
 │  Input:                         │
 │  - Raw financial metrics        │
@@ -373,7 +375,7 @@ Each analysis page contains:
 8. Calculates 6 category scores + composite (Technical 30%, Fundamental 35%, Macro 20%, Risk 15%)
 9. Queries Notion for historical analyses (5 most recent from user's Stock History DB)
 10. Computes deltas and trends
-11. Calls Gemini Flash 2.5 for 7-section analysis (~10-20 sec)
+11. Calls LLM (Claude Sonnet 4.5 primary) for 7-section analysis (~10-20 sec)
 12. Writes to 3 Notion locations in user's workspace:
     - Stock Analyses DB (main page update, triggers Notion Inbox notification)
     - Child analysis page (dated, e.g., "AAPL Analysis - Nov 1, 2025")
@@ -676,10 +678,11 @@ Each analysis page contains:
                    │
                    ▼
 ┌─────────────────────────────────────────┐
-│ 7. Call Google Gemini Flash 2.5 API     │
+│ 7. Call LLM API (Claude Sonnet 4.5)    │
+│    Provider configured via LLM_PROVIDER │
 │                                         │
-│ Input: ~1,500-2,500 tokens (50% less)   │
-│ Output: ~1,250 tokens (50% less)        │
+│ Input: ~1,500 tokens (67% reduction)    │
+│ Output: ~1,800 tokens                   │
 │                                         │
 │ Receives:                               │
 │ • Complete 7-section analysis           │
@@ -688,8 +691,8 @@ Each analysis page contains:
 │ • Highlights deltas and trends          │
 │                                         │
 │ Time: ~10-20 seconds                    │
-│ Cost: ~$0.013 per analysis              │
-│ (vs $0.026 with OpenAI GPT-4)           │
+│ Cost: ~$0.03-0.05 per analysis (Claude) │
+│ (Alternative: Gemini ~$0.013)           │
 └──────────────────┬──────────────────────┘
                    │
                    ▼
@@ -943,32 +946,36 @@ TOTAL: 23-42 seconds (realistic with Notion)
 TARGET: 18-25 seconds (achievable with PostgreSQL in v2.0)
 
 ═══════════════════════════════════════════════════════════
-Cost Per Analysis:
+Cost Per Analysis (Current - Claude Sonnet 4.5):
 ═══════════════════════════════════════════════════════════
-• FMP API calls: $0.001
-• Google Gemini Flash 2.5: $0.013 (50% token reduction)
+• FMP API calls: $0.002
+• Anthropic Claude Sonnet 4.5: $0.03-0.05 (67% token reduction)
 • Vercel compute: ~$0.001
 ─────────────────────────────
-TOTAL: ~$0.015 (~1.5¢) per analysis
-(vs $0.028 with OpenAI GPT-4 - 47% savings)
+TOTAL: ~$0.032-0.052 (~3-5¢) per analysis
+
+Alternative LLM Options:
+• Google Gemini Flash 2.5: ~$0.013/analysis (lower cost)
+• OpenAI GPT-4 Turbo: ~$0.10+/analysis (higher cost)
+Configuration: Set in .env.example via LLM_PROVIDER variable
 
 ═══════════════════════════════════════════════════════════
 Monthly Costs (10 beta users, 100 analyses/day):
 ═══════════════════════════════════════════════════════════
 • Vercel Pro: $20
 • FMP API: $29
-• Gemini API: $39 (3,000 analyses/month)
+• Anthropic Claude API: $90-150 (3,000 analyses/month @ ~$0.03-0.05)
 • Upstash Redis: $0 (free tier)
 ─────────────────────────────
-TOTAL: $88/month (v1.0.2 with Notion)
+TOTAL: $139-199/month (v1.2.21 with Notion)
 
 Future (v2.0 with PostgreSQL):
 • Vercel Pro: $20
 • FMP API: $29
-• Gemini API: $39
+• Anthropic Claude API: $90-150
 • Supabase: $0-25
 ─────────────────────────────
-TOTAL: $88-113/month
+TOTAL: $139-224/month
 ```
 
 ---
@@ -1077,7 +1084,7 @@ stock-intelligence/
   - Priority queue: Pro > Analyst > Starter > Free
   - Rate limiting: Configurable delay between tickers (default 8s)
   - Fault isolation: One failure doesn't block others
-  - Retry logic: Exponential backoff on Gemini 503 errors
+  - Retry logic: Exponential backoff on LLM errors (503/429)
   - Dry-run mode: Test without API calls
   - **Impact:** 99.9% cost reduction at scale ($4,745/year → $4.75/year)
   - See [ORCHESTRATOR.md](ORCHESTRATOR.md) for details
@@ -1212,7 +1219,7 @@ stock-intelligence/
        │
        ├─▶ 4a. Analyze with Retry (analyzeWithRetry)
        │   ├─▶ Call analyzeStockCore() once
-       │   ├─▶ On Gemini 503: retry with backoff (2s, 4s, 8s)
+       │   ├─▶ On LLM errors (503/429): retry with backoff (2s, 4s, 8s)
        │   └─▶ Return analysis result
        │
        ├─▶ 4b. Validate Completeness (validateAnalysisComplete)

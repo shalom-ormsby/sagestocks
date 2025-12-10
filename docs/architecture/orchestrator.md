@@ -20,7 +20,7 @@ Total: 51 API calls, 3 LLM requests, $0.039 cost
 ```
 
 **Issues:**
-- Sequential processing caused Gemini 503 errors
+- Sequential processing caused LLM rate limit errors
 - Massive API waste at scale (1,000 users = 17,000 calls)
 - No rate limiting between requests
 
@@ -29,7 +29,7 @@ Total: 51 API calls, 3 LLM requests, $0.039 cost
 Orchestrator analyzes AAPL once → 17 API calls + 1 LLM request
 Broadcasts to Users 1, 2, 3 simultaneously
 ---
-Total: 17 API calls, 1 LLM request, $0.013 cost
+Total: 17 API calls, 1 LLM request, ~$0.03-0.05 cost (Claude Sonnet 4.5)
 Savings: 66% reduction in API calls, 67% cost reduction
 ```
 
@@ -67,7 +67,7 @@ Savings: 66% reduction in API calls, 67% cost reduction
 │ Step 3: Queue Processor (processQueue)                      │
 │ • For each ticker:                                           │
 │   1. Analyze once (analyzeWithRetry)                        │
-│      • Retry on Gemini 503 with exponential backoff         │
+│      • Retry on LLM errors (503/429) with exponential backoff │
 │   2. Validate completeness (validateAnalysisComplete)       │
 │   3. Broadcast to subscribers (broadcastToSubscribers)      │
 │      • Parallel with Promise.allSettled (fault isolation)   │
@@ -91,7 +91,7 @@ Savings: 66% reduction in API calls, 67% cost reduction
    - `collectStockRequests()`: Queries all users' stocks, deduplicates by ticker
    - `buildPriorityQueue()`: Sorts by highest subscriber tier
    - `processQueue()`: Main processing loop with rate limiting
-   - `analyzeWithRetry()`: Exponential backoff on Gemini 503 errors
+   - `analyzeWithRetry()`: Exponential backoff on LLM errors (503/429)
    - `broadcastToSubscribers()`: Parallel broadcasts with Promise.allSettled
    - `broadcastToUser()`: Individual user broadcast with retry
    - `runOrchestrator()`: Main entry point
@@ -145,7 +145,7 @@ Total: ~80s for 3 stocks (vs 60s without delay, but no 503 errors)
 
 ### 4. Exponential Backoff Retry
 ```typescript
-// Gemini 503 error handling
+// LLM error handling (503/429 rate limits)
 Attempt 1: Immediate
 Attempt 2: Wait 2s
 Attempt 3: Wait 4s
@@ -352,7 +352,7 @@ ORCHESTRATOR_DRY_RUN=false npm run test:cron
    - Individual user errors logged but don't stop processing
 
 3. **Retry Logic**
-   - Gemini 503 errors: 3 retries with exponential backoff (2s, 4s, 8s)
+   - LLM errors (503/429): 3 retries with exponential backoff (2s, 4s, 8s)
    - Broadcast failures: 1 retry with 5s backoff
    - All failures logged for observability
 
@@ -363,8 +363,10 @@ ORCHESTRATOR_DRY_RUN=false npm run test:cron
 
 5. **Configurable Rate Limiting**
    - `ANALYSIS_DELAY_MS` env var allows tuning for different LLM providers
-   - Default 8s safe for Gemini Free tier (2 RPM)
+   - Default 8s safe for rate limit compliance
    - Reduce to 3-5s for paid tiers with higher limits
+   - **LLM Provider Configuration:** Set in [.env.example](../../.env.example#L34) via `LLM_PROVIDER` variable
+   - **Provider Selection Logic:** [api/analyze/index.ts:821](../../api/analyze/index.ts#L821)
 
 ---
 
@@ -375,18 +377,20 @@ ORCHESTRATOR_DRY_RUN=false npm run test:cron
 **Before Orchestrator (v1.0.4):**
 ```
 1,000 analyses × 17 API calls = 17,000 calls
-1,000 LLM requests × $0.013 = $13.00/day
-Annual cost: $4,745
+1,000 LLM requests × $0.04 (avg) = $40.00/day
+Annual cost: $14,600
 ```
 
 **After Orchestrator (v1.0.5):**
 ```
 1 analysis × 17 API calls = 17 calls
-1 LLM request × $0.013 = $0.013/day
-Annual cost: $4.75
+1 LLM request × $0.04 (avg) = $0.04/day
+Annual cost: $14.60
 ```
 
-**Savings: 99.9% ($4,740/year)**
+**Savings: 99.9% ($14,585/year)**
+
+**Note:** Cost estimates based on **Anthropic Claude Sonnet 4.5** (~$0.03-0.05/analysis). Alternative providers (Gemini ~$0.013, OpenAI ~$0.10+) available via `LLM_PROVIDER` env variable.
 
 ---
 
@@ -397,7 +401,7 @@ Annual cost: $4.75
 Without orchestrator (v1.0.4):
   10 stocks × 25s = 250s (4.2 minutes)
   Sequential, no delay
-  Result: Gemini 503 errors on stocks 3-10
+  Result: LLM rate limit errors on stocks 3-10
 
 With orchestrator (v1.0.5):
   10 stocks × (20s analysis + 8s delay) = 280s (4.7 minutes)
@@ -412,12 +416,12 @@ With orchestrator (v1.0.5):
 Without orchestrator:
   100 users × 10 stocks × 25s = 25,000s (6.9 hours)
   17,000 API calls
-  $13.00 LLM cost
+  $40.00 LLM cost (Claude Sonnet 4.5)
 
 With orchestrator:
   5 unique tickers × (20s + 8s) = 140s (2.3 minutes)
   85 API calls (5 tickers × 17 calls)
-  $0.065 LLM cost
+  $0.20 LLM cost (Claude Sonnet 4.5)
 
 Savings: 99.4% time, 99.5% API calls, 99.5% cost
 ```
@@ -428,9 +432,9 @@ Savings: 99.4% time, 99.5% API calls, 99.5% cost
 
 ### Circuit Breaker Pattern
 ```typescript
-// Stop processing after 3 consecutive Gemini failures
-if (consecutiveGeminiFailures >= 3) {
-  log('Gemini circuit breaker triggered - aborting batch');
+// Stop processing after 3 consecutive LLM failures
+if (consecutiveLLMFailures >= 3) {
+  log('LLM circuit breaker triggered - aborting batch');
   break;
 }
 ```
