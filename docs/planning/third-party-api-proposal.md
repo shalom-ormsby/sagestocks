@@ -355,11 +355,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 ## Questions for BaseBase Team
 
-1. **Usage volume:** How many analyses per day?
-2. **Response time:** Is 10-15 seconds acceptable?
-3. **Data freshness:** Real-time or cached OK?
-4. **Webhook support:** Do you need async notifications?
-5. **Batch processing:** Need multiple tickers at once?
+1. **Usage volume:** How many analyses per day? BB's answer: For phase 1, up to 100 (with the ability to scale to thousands)
+2. **Response time:** Is 10-15 seconds acceptable? BB's answer: Yes
+3. **Data freshness:** BB's answer: Real-time or cached OK? Cached for how long? 15 mins is acceptable. Longer becomes problematic. 
+4. **Webhook support:** Do you need async notifications? BB's answer: Ultimately yes, but not required for phase 1.
+5. **Batch processing:** Need multiple tickers at once? BB's answer: To support the multi-tenant architecture, yes. [I.e., two users requesting stock analyses at the same time should not crash the system.]  
 
 ---
 
