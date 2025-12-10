@@ -14,6 +14,7 @@
     "poll": "ts-node scripts/maintenance/poll-notion.ts",
     "cleanup-template": "ts-node scripts/maintenance/cleanup-prod-template.ts",
     "clear-tokens": "ts-node scripts/maintenance/clear-encrypted-tokens.ts",
+    "clear-my-token": "ts-node scripts/maintenance/clear-my-token.ts",
     "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit"
   },
