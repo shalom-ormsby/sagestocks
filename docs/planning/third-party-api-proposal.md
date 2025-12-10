@@ -361,6 +361,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 4. **Webhook support:** Do you need async notifications? BB's answer: Ultimately yes, but not required for phase 1.
 5. **Batch processing:** Need multiple tickers at once? BB's answer: To support the multi-tenant architecture, yes. [I.e., two users requesting stock analyses at the same time should not crash the system.]  
 
+## Answers from BaseBase Team
+
+1. **Usage volume:** For phase 1, up to 100 (with the ability to scale to thousands)
+2. **Response time:** Is 10-15 seconds acceptable? Yes
+3. **Data freshness:** Cached for how long? 15 mins is acceptable. Longer becomes problematic. 
+4. **Webhook support:** Ultimately yes, but not required for phase 1.
+5. **Batch processing:** To support the multi-tenant architecture, yes. [I.e., two users requesting stock analyses at the same time should not crash the system.]  
+**Note** Critical requirement: Must fully support multi-tenant architecture. 
+
 ---
 
 ## Cost Analysis
