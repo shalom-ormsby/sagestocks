@@ -138,7 +138,7 @@ Every analysis is automatically archived in your **Stock History database** with
 
 ### 🤖 AI-Generated Analysis
 
-Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
+Sage Intelligence generates 7-section narratives using **Anthropic Claude Sonnet 4.5**:
 
 1. **Executive Summary** - Buy/Hold/Sell recommendation with confidence level
 2. **Technical Analysis** - Chart patterns, momentum indicators, support/resistance
@@ -149,6 +149,8 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 7. **Action Items** - Specific recommendations (e.g., "Wait for RSI < 30 before entry")
 
 **Token Optimization:** 67% reduction in tokens (6,000 → 2,000), 50% reduction in latency.
+
+**Provider Configuration:** The LLM provider is configured via `LLM_PROVIDER` environment variable in [.env.example](.env.example#L34). The provider selection logic is implemented in [api/analyze/index.ts:821](api/analyze/index.ts#L821) via `LLMFactory.getProviderFromEnv()`.
 
 ---
 
@@ -171,10 +173,11 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 **LLM Integration (Sage Intelligence):**
 
 - **Provider-agnostic abstraction layer** supporting:
-  - Google Gemini (Flash 2.5, Flash 1.5) - Primary, $0.013/analysis
-  - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo)
-  - Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku)
-- **Configurable via environment variable** (`LLM_PROVIDER`)
+  - Anthropic Claude (Sonnet 4.5, Sonnet 3.5, Haiku) - **Primary**, ~$0.03-0.05/analysis
+  - Google Gemini (Flash 2.5, Flash 1.5) - Alternative, ~$0.013/analysis
+  - OpenAI (GPT-4 Turbo, GPT-3.5 Turbo) - Alternative
+- **Configurable via environment variable** (`LLM_PROVIDER` in [.env.example](.env.example#L34))
+- **Provider selection logic:** [api/analyze/index.ts:821](api/analyze/index.ts#L821)
 - **67% token reduction** vs. original prompts
 
 **Integration:**
@@ -224,14 +227,14 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
     "notionCalls": 8
   },
   "llmMetadata": {
-    "provider": "Google Gemini",
-    "model": "gemini-2.5-flash",
+    "provider": "Anthropic Claude",
+    "model": "claude-sonnet-4-5-20250929",
     "tokensUsed": {
       "input": 1500,
       "output": 1800,
       "total": 3300
     },
-    "cost": 0.013,
+    "cost": 0.042,
     "latencyMs": 3200
   },
   "rateLimit": {
@@ -302,7 +305,7 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
                                    │
                     ┌──────────────▼──────────────┐
                     │   LLM Analysis Generation    │
-                    │   (Gemini Flash 2.5)         │
+                    │   (Claude Sonnet 4.5)        │
                     │   - Market environment       │
                     │   - Delta-first narrative    │
                     │   - Upcoming events          │
@@ -337,7 +340,7 @@ Sage Intelligence generates 7-section narratives using Google Gemini Flash 2.5:
 
 Total Duration: ~25-45 seconds
 API Calls: FMP (11) + FRED (6) + Notion (6-8) = 23-25 calls
-Cost per Analysis: ~$0.013 (LLM) + ~$0.002 (APIs) = $0.015
+Cost per Analysis: ~$0.03-0.05 (LLM) + ~$0.002 (APIs) = ~$0.032-0.052
 ```
 
 ---
@@ -383,20 +386,26 @@ See [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md) for detailed histo
 
 **Monthly Operating Costs (v1.2.21):**
 
-| Service       | Cost             | Usage                                          |
-| ------------- | ---------------- | ---------------------------------------------- |
-| Vercel Pro    | $20/month        | 300s timeout, unlimited invocations            |
-| FMP API       | $22-29/month     | Stock data, fundamentals, technical indicators |
-| Google Gemini | $40/month        | 3,000 analyses (@ $0.013 each)                 |
-| FRED API      | Free             | Macroeconomic data                             |
-| Notion        | Free             | Database storage (v1.2.21 only)                |
-| Upstash Redis | Free             | Rate limiting state (under free tier limits)   |
-| **Total**     | **$82-89/month** | For personal use (up to 3,000 analyses/month)  |
+| Service          | Cost              | Usage                                                    |
+| ---------------- | ----------------- | -------------------------------------------------------- |
+| Vercel Pro       | $20/month         | 300s timeout, unlimited invocations                      |
+| FMP API          | $22-29/month      | Stock data, fundamentals, technical indicators           |
+| Anthropic Claude | $90-150/month     | 3,000 analyses (@ ~$0.03-0.05 each, Sonnet 4.5)          |
+| FRED API         | Free              | Macroeconomic data                                       |
+| Notion           | Free              | Database storage (v1.2.21 only)                          |
+| Upstash Redis    | Free              | Rate limiting state (under free tier limits)             |
+| **Total**        | **$132-199/month** | For personal use (up to 3,000 analyses/month)            |
+
+**Alternative LLM Options (Cost Comparison):**
+- Google Gemini Flash 2.5: ~$0.013/analysis = $40/month for 3,000 analyses (lower cost, alternative provider)
+- OpenAI GPT-4 Turbo: ~$0.10+/analysis = $300+/month for 3,000 analyses (higher cost)
+
+**Configuration:** LLM provider is set in [.env.example](.env.example#L34) via `LLM_PROVIDER` variable.
 
 **v2.0 Upgrade (PostgreSQL):**
 
 - Add Supabase: $0-25/month (free tier → Pro as needed)
-- Total: $102-134/month (10-15x faster database, unlimited scale)
+- Total: $152-244/month (10-15x faster database, unlimited scale)
 
 ---
 
@@ -473,7 +482,8 @@ Built with:
 - Vercel - Serverless platform
 - Financial Modeling Prep - Market data
 - FRED - Economic data
-- Google Gemini - LLM analysis generation
+- Anthropic Claude - LLM analysis generation (primary)
+- Google Gemini - Alternative LLM provider
 - Notion - Database integration (v1.2.21)
 - Upstash - Redis rate limiting
 
