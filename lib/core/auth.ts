@@ -534,6 +534,25 @@ export async function decryptToken(encryptedToken: string): Promise<string> {
   }
 }
 
+/**
+ * Safely decrypt OAuth access token with better error context
+ * Throws a more descriptive error when decryption fails (e.g., after key rotation)
+ */
+export async function safeDecryptToken(
+  encryptedToken: string,
+  context?: { userId?: string; email?: string }
+): Promise<string> {
+  try {
+    return await decryptToken(encryptedToken);
+  } catch (error) {
+    log(LogLevel.ERROR, 'Token decryption failed - likely encryption key rotation', {
+      ...context,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new Error('TOKEN_DECRYPTION_FAILED: Authentication token could not be decrypted. Please log out and log back in to re-authenticate.');
+  }
+}
+
 // ============================================================================
 // User Management (Notion CRUD)
 // ============================================================================

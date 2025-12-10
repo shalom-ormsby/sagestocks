@@ -24,7 +24,7 @@ import { createFMPClient } from '../../lib/integrations/fmp/client';
 import { createFREDClient } from '../../lib/integrations/fred/client';
 import { createStockScorer } from '../../lib/domain/analysis/scoring';
 import { createNotionClient, AnalysisData } from '../../lib/integrations/notion/client';
-import { requireAuth as requireAuthSession, getUserByEmail, decryptToken, incrementUserAnalyses, updateSetupProgress, getSetupProgress } from '../../lib/core/auth';
+import { requireAuth as requireAuthSession, getUserByEmail, safeDecryptToken, incrementUserAnalyses, updateSetupProgress, getSetupProgress } from '../../lib/core/auth';
 import { validateStockData, validateTicker } from '../../lib/core/validators';
 import { createTimer, logAnalysisStart, logAnalysisComplete, logAnalysisFailed } from '../../lib/core/logger';
 import { formatErrorResponse, formatErrorForNotion, withRetry } from '../../lib/core/utils';
@@ -278,7 +278,20 @@ export default async function handler(
     }
 
     // Decrypt user's OAuth access token
-    userAccessToken = await decryptToken(user.accessToken);
+    try {
+      userAccessToken = await safeDecryptToken(user.accessToken, {
+        userId: user.id,
+        email: user.email,
+      });
+    } catch (decryptError) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication token invalid',
+        details: 'Your authentication token could not be decrypted. Please log out and log back in to re-authenticate with Notion.',
+        code: 'TOKEN_DECRYPTION_FAILED',
+      });
+      return;
+    }
 
     // Parse request body
     const body: AnalyzeRequest =

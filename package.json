@@ -13,6 +13,7 @@
     "test:orchestrator:real": "ORCHESTRATOR_DRY_RUN=false ts-node scripts/test/orchestrator.ts",
     "poll": "ts-node scripts/maintenance/poll-notion.ts",
     "cleanup-template": "ts-node scripts/maintenance/cleanup-prod-template.ts",
+    "clear-tokens": "ts-node scripts/maintenance/clear-encrypted-tokens.ts",
     "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit"
   },
